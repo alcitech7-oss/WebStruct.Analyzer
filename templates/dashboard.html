@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🌐 WebStruct.Analyzer Pro</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <!-- Cabeçalho -->
+        <header class="header">
+            <div class="logo">
+                <div class="logo-icon">🌍</div>
+                <div>
+                    <h1>WebStruct.Analyzer</h1>
+                    <span class="badge">PRO</span>
+                </div>
+            </div>
+            <p class="subtitle">Map any website and export to Excel, JSON, or CSV.</p>
+        </header>
+
+        <!-- Área principal -->
+        <main>
+            <!-- CAIXA DE INSTRUÇÕES -->
+            <div class="instrucoes-box">
+                <div class="instrucoes-header">
+                    <span class="instrucoes-icon">📖</span>
+                    <span class="instrucoes-titulo">How to use</span>
+                </div>
+                <ol class="instrucoes-lista">
+                    <li>Enter the URL and click <strong>Map</strong></li>
+                    <li>A pop-up will appear confirming if this is the correct URL. If it is, click on it. <strong>Map</strong></li>
+                    <li>When you click "Map," a window will open displaying the requested URL. It will remain visible during the mapping process. You can minimize it if you wish, but do not close it! It will close automatically once the mapping is complete..—<strong>but do not close it!</strong> It will close automatically once the mapping is complete.</li>
+                </ol>
+            </div>
+
+            <!-- Input da URL -->
+            <div class="url-input-wrapper">
+                <div class="url-input">
+                    <span class="input-icon">🔗</span>
+                    <input type="text" id="urlInput" placeholder="https://www.uol.com.br/" value="https://www.uol.com.br/">
+                    <button onclick="mapear()" id="btnMapear" class="btn-primary">
+                        🚀 Map
+                    </button>
+                </div>
+            </div>
+
+            <!-- Status -->
+            <div id="statusMapeamento" class="status"></div>
+
+            <!-- Progresso -->
+            <div id="progressoContainer" style="display:none;" class="progresso-wrapper">
+                <div class="progresso-info">
+                    <span id="progressoTexto" class="progresso-label">⏳ Mapping...</span>
+                    <span id="progressoPorcentagem" class="progresso-pct">0%</span>
+                </div>
+                <div class="progresso-barra">
+                    <div id="progressoBarra" style="width:0%;"></div>
+                </div>
+                <div id="progressoMensagem" class="progresso-mensagem">Starting...</div>
+            </div>
+
+            <!-- Sucesso -->
+            <div id="sucessoContainer" style="display:none;" class="sucesso-wrapper">
+                <div class="sucesso">
+                    <span class="sucesso-icon">✅</span>
+                    <div>
+                        <span class="sucesso-titulo">Map successfully generated!</span>
+                        <span id="sucessoDetalhes" class="sucesso-detalhes"></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Estatísticas -->
+            <div id="estatisticas" style="display:none;" class="estatisticas-painel">
+                <div class="stat-card stat-card-total">
+                    <span class="stat-icon">📊</span>
+                    <div>
+                        <span class="stat-label">Total</span>
+                        <span class="stat-value" id="statTotal">0</span>
+                    </div>
+                </div>
+                <div class="stat-card stat-card-tags">
+                    <span class="stat-icon">🏷️</span>
+                    <div>
+                        <span class="stat-label">Tags</span>
+                        <span class="stat-value" id="statTags">0</span>
+                    </div>
+                </div>
+                <div class="stat-card stat-card-texto">
+                    <span class="stat-icon">📝</span>
+                    <div>
+                        <span class="stat-label">With text</span>
+                        <span class="stat-value" id="statTexto">0</span>
+                    </div>
+                </div>
+                <div class="stat-card stat-card-links">
+                    <span class="stat-icon">🔗</span>
+                    <div>
+                        <span class="stat-label">Links</span>
+                        <span class="stat-value" id="statLinks">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Exportação -->
+            <div class="export-row">
+                <button onclick="exportar('excel')" class="btn-export btn-excel">📥 Excel</button>
+                <button onclick="exportar('json')" class="btn-export btn-json">📥 JSON</button>
+                <button onclick="exportar('csv')" class="btn-export btn-csv">📥 CSV</button>
+            </div>
+
+<!-- ============================================
+     RESULTADOS - COM 1 GIF (VERSÃO CLEAN)
+     ============================================ -->
+<div id="resultadosContainer">
+    <!-- Estado inicial com 1 GIF -->
+    <div id="estadoInicial" class="estado-inicial">
+        <img src="/static/gif2.gif" alt="Mapeie um site" class="gif-placeholder">
+        <h3>https://github.com/alcitech7-oss</h3>
+        <p>Enter the URL above and click on <strong>"Map"</strong></p>
+    </div>
+    
+    <!-- Lista de resultados (escondida inicialmente) -->
+    <div id="resultadosLista" style="display: none;"></div>
+</div>
+
+    <!-- Modal de Confirmação -->
+    <div id="confirmModal" class="modal-confirm" style="display:none;">
+        <div class="modal-confirm-content">
+            <div class="modal-confirm-header">
+                <span class="modal-confirm-icon">🔍</span>
+                <h2>Confirmar Mapeamento</h2>
+            </div>
+            <div class="modal-confirm-body">
+                <p>A página foi aberta em uma janela separada.</p>
+                <p class="modal-confirm-url" id="confirmUrl">https://www.uol.com.br/</p>
+                <p style="color: #8b949e; font-size: 14px;">Confira se é a página correta.</p>
+            </div>
+            <div class="modal-confirm-footer">
+                <button class="btn-confirm btn-sim" onclick="confirmarMapeamento(true)">🚀 MAPEAR</button>
+                <button class="btn-confirm btn-nao" onclick="confirmarMapeamento(false)">❌ CANCELAR</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Detalhes -->
+    <div id="elementoModal" class="modal" style="display:none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>🔍 Detalhes do Elemento</h2>
+                <button onclick="fecharModal()" class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body" id="modalBody"></div>
+            <div class="modal-footer">
+                <button onclick="fecharModal()" class="btn-secondary">Fechar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div id="toast" class="toast" style="display:none;"></div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
