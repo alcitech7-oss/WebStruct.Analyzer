@@ -122,7 +122,16 @@ pip install -r requirements.txt
 ### 4️⃣ Instale os Navegadores do Playwright
 
 ```bash
-playwright install
+pip install playwright
+
+# Apenas Chromium
+python -m playwright install chromium
+
+# Apenas Firefox
+python -m playwright install firefox
+
+# Apenas WebKit (Safari)
+python -m playwright install webkit
 ```
 
 ### 5️⃣ Execute o Projeto
