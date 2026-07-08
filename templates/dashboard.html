@@ -32,8 +32,24 @@
                 <ol class="instrucoes-lista">
                     <li>Enter the URL and click <strong>Map</strong></li>
                     <li>A pop-up will appear confirming if this is the correct URL. If it is, click on it. <strong>Map</strong></li>
-                    <li>When you click "Map," a window will open displaying the requested URL. It will remain visible during the mapping process. You can minimize it if you wish, but do not close it! It will close automatically once the mapping is complete..—<strong>but do not close it!</strong> It will close automatically once the mapping is complete.</li>
+                    <li>When you click "Map," a window will open displaying the requested URL. It will remain visible during the mapping process. You can minimize it if you wish, but do not close it! It will close automatically once the mapping is complete.—<strong>but do not close it!</strong> It will close automatically once the mapping is complete.</li>
                 </ol>
+            </div>
+
+            <!-- BARRA DE BUSCA DINÂMICA -->
+            <div class="search-container">
+                <div class="search-box">
+                    <span class="search-icon">🔎</span>
+                    <input 
+                        type="text" 
+                        id="searchInput" 
+                        placeholder="Buscar por tag, classe, ID ou texto... Ex: div, .classe, #id, 'texto'"
+                        oninput="filtrarElementos()"
+                    >
+                    <button onclick="filtrarElementos()" class="btn-search">Buscar</button>
+                    <button onclick="limparBusca()" class="btn-search-clear" id="btnClear" style="display:none;">✕</button>
+                </div>
+                <div id="searchStatus" class="search-status">📌 0 elementos encontrados</div>
             </div>
 
             <!-- Input da URL -->
@@ -112,56 +128,53 @@
                 <button onclick="exportar('csv')" class="btn-export btn-csv">📥 CSV</button>
             </div>
 
-<!-- ============================================
-     RESULTADOS - COM 1 GIF (VERSÃO CLEAN)
-     ============================================ -->
-<div id="resultadosContainer">
-    <!-- Estado inicial com 1 GIF -->
-    <div id="estadoInicial" class="estado-inicial">
-        <img src="/static/gif2.gif" alt="Mapeie um site" class="gif-placeholder">
-        <h3>https://github.com/alcitech7-oss</h3>
-        <p>Enter the URL above and click on <strong>"Map"</strong></p>
-    </div>
-    
-    <!-- Lista de resultados (escondida inicialmente) -->
-    <div id="resultadosLista" style="display: none;"></div>
-</div>
+            <!-- RESULTADOS -->
+            <div id="resultadosContainer">
+                <div id="estadoInicial" class="estado-inicial">
+                    <img src="/static/gif2.gif" alt="Mapeie um site" class="gif-placeholder">
+                    <h3>https://github.com/alcitech7-oss</h3>
+                    <p>Enter the URL above and click on <strong>"Map"</strong></p>
+                </div>
+                <div id="resultadosLista" style="display: none;"></div>
+            </div>
+        </main>
 
-    <!-- Modal de Confirmação -->
-    <div id="confirmModal" class="modal-confirm" style="display:none;">
-        <div class="modal-confirm-content">
-            <div class="modal-confirm-header">
-                <span class="modal-confirm-icon">🔍</span>
-                <h2>Confirmar Mapeamento</h2>
-            </div>
-            <div class="modal-confirm-body">
-                <p>A página foi aberta em uma janela separada.</p>
-                <p class="modal-confirm-url" id="confirmUrl">https://www.uol.com.br/</p>
-                <p style="color: #8b949e; font-size: 14px;">Confira se é a página correta.</p>
-            </div>
-            <div class="modal-confirm-footer">
-                <button class="btn-confirm btn-sim" onclick="confirmarMapeamento(true)">🚀 MAPEAR</button>
-                <button class="btn-confirm btn-nao" onclick="confirmarMapeamento(false)">❌ CANCELAR</button>
+        <!-- Modal de Confirmação -->
+        <div id="confirmModal" class="modal-confirm" style="display:none;">
+            <div class="modal-confirm-content">
+                <div class="modal-confirm-header">
+                    <span class="modal-confirm-icon">🔍</span>
+                    <h2>Confirmar Mapeamento</h2>
+                </div>
+                <div class="modal-confirm-body">
+                    <p>A página foi aberta em uma janela separada.</p>
+                    <p class="modal-confirm-url" id="confirmUrl">https://www.uol.com.br/</p>
+                    <p style="color: #8b949e; font-size: 14px;">Confira se é a página correta.</p>
+                </div>
+                <div class="modal-confirm-footer">
+                    <button class="btn-confirm btn-sim" onclick="confirmarMapeamento(true)">🚀 MAPEAR</button>
+                    <button class="btn-confirm btn-nao" onclick="confirmarMapeamento(false)">❌ CANCELAR</button>
+                </div>
             </div>
         </div>
-    </div>
 
-    <!-- Modal de Detalhes -->
-    <div id="elementoModal" class="modal" style="display:none;">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>🔍 Detalhes do Elemento</h2>
-                <button onclick="fecharModal()" class="modal-close">&times;</button>
-            </div>
-            <div class="modal-body" id="modalBody"></div>
-            <div class="modal-footer">
-                <button onclick="fecharModal()" class="btn-secondary">Fechar</button>
+        <!-- Modal de Detalhes -->
+        <div id="elementoModal" class="modal" style="display:none;">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>🔍 Detalhes do Elemento</h2>
+                    <button onclick="fecharModal()" class="modal-close">&times;</button>
+                </div>
+                <div class="modal-body" id="modalBody"></div>
+                <div class="modal-footer">
+                    <button onclick="fecharModal()" class="btn-secondary">Fechar</button>
+                </div>
             </div>
         </div>
-    </div>
 
-    <!-- Toast -->
-    <div id="toast" class="toast" style="display:none;"></div>
+        <!-- Toast -->
+        <div id="toast" class="toast" style="display:none;"></div>
+    </div>
 
     <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>

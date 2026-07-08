@@ -2,13 +2,14 @@ let dadosMapeados = [];
 let ultimosResultados = [];
 let totalElementos = 0;
 let urlParaMapear = '';
+let elementosCompletos = [];
 
 function mostrarToast(mensagem, tipo = 'info') {
     const toast = document.getElementById('toast');
     toast.textContent = mensagem;
-    toast.className = `toast toast-${tipo}`;
+    toast.className = 'toast toast-' + tipo;
     toast.style.display = 'block';
-    setTimeout(() => { toast.style.display = 'none'; }, 4000);
+    setTimeout(function() { toast.style.display = 'none'; }, 4000);
 }
 
 async function mapear() {
@@ -51,11 +52,12 @@ async function confirmarMapeamento(confirmado) {
         { pct: 30, msg: 'Carregando página...' },
         { pct: 50, msg: 'Extraindo elementos...' },
         { pct: 70, msg: 'Processando dados...' },
-        { pct: 90, msg: 'Finalizando...' },
+        { pct: 90, msg: 'Finalizando...' }
     ];
 
     let progressoAtual = 0;
-    for (const fase of fases) {
+    for (let i = 0; i < fases.length; i++) {
+        const fase = fases[i];
         while (progressoAtual < fase.pct) {
             progressoAtual += Math.random() * 2 + 1;
             if (progressoAtual > fase.pct) progressoAtual = fase.pct;
@@ -63,7 +65,7 @@ async function confirmarMapeamento(confirmado) {
             barra.style.width = pct + '%';
             porcentagem.textContent = pct + '%';
             mensagem.textContent = fase.msg;
-            await new Promise(r => setTimeout(r, 80));
+            await new Promise(function(r) { setTimeout(r, 80); });
         }
     }
 
@@ -88,7 +90,8 @@ async function confirmarMapeamento(confirmado) {
         porcentagem.textContent = '100%';
         mensagem.textContent = '✅ Mapeamento concluído!';
 
-        dadosMapeados = data.primeiros || [];
+        dadosMapeados = data.todos || data.primeiros || [];
+        elementosCompletos = dadosMapeados;
         totalElementos = data.total;
 
         document.getElementById('estatisticas').style.display = 'flex';
@@ -97,11 +100,11 @@ async function confirmarMapeamento(confirmado) {
 
         progressoContainer.style.display = 'none';
         sucessoContainer.style.display = 'block';
-        document.getElementById('sucessoDetalhes').textContent = `${data.total} elementos encontrados`;
+        document.getElementById('sucessoDetalhes').textContent = data.total + ' elementos encontrados';
 
-        status.innerHTML = `✅ ${data.total} elementos mapeados!`;
+        status.innerHTML = '✅ ' + data.total + ' elementos mapeados!';
         status.style.color = '#3fb950';
-        mostrarToast(`✅ ${data.total} elementos mapeados com sucesso!`, 'success');
+        mostrarToast('✅ ' + data.total + ' elementos mapeados com sucesso!', 'success');
 
         mostrarResultados(dadosMapeados);
 
@@ -116,32 +119,127 @@ async function confirmarMapeamento(confirmado) {
     }
 }
 
-function mostrarResultados(elementos) {
-    const container = document.getElementById('resultadosLista');
-    if (!elementos || elementos.length === 0) {
-        container.innerHTML = '<p class="placeholder">Nenhum elemento encontrado</p>';
+function filtrarElementos() {
+    const input = document.getElementById('searchInput');
+    if (!input) return;
+    
+    const termo = input.value.toLowerCase().trim();
+    const status = document.getElementById('searchStatus');
+    const btnClear = document.getElementById('btnClear');
+
+    if (termo.length > 0) {
+        if (btnClear) btnClear.style.display = 'inline-block';
+    } else {
+        if (btnClear) btnClear.style.display = 'none';
+    }
+
+    if (termo === '') {
+        mostrarResultados(elementosCompletos);
+        if (status) {
+            status.innerHTML = '📌 ' + elementosCompletos.length + ' elementos no total';
+            status.style.color = '#8b949e';
+        }
         return;
     }
 
-    let html = `<div class="lista-header">📌 ${elementos.length} elementos</div><ul class="lista-elementos">`;
-    elementos.forEach((elem, index) => {
+    const filtrados = elementosCompletos.filter(function(elem) {
+        const campos = [
+            elem.tag || '',
+            elem.classe || '',
+            elem.id || '',
+            elem.texto || '',
+            elem.link || '',
+            elem.seletor_css || '',
+            elem.xpath || ''
+        ];
+        const textoCompleto = campos.join(' ').toLowerCase();
+        return textoCompleto.includes(termo);
+    });
+
+    if (filtrados.length > 0) {
+        mostrarResultados(filtrados);
+        if (status) {
+            status.innerHTML = '🔍 ' + filtrados.length + ' elementos encontrados para "' + termo + '"';
+            status.style.color = '#3fb950';
+        }
+    } else {
+        const lista = document.getElementById('resultadosLista');
+        if (lista) {
+            lista.innerHTML = `
+                <div class="sem-resultados">
+                    <span class="sem-icon">🔍</span>
+                    <p>Nenhum elemento encontrado para <strong>"${termo}"</strong></p>
+                    <p class="sem-dica">Tente buscar por: tag (div), classe (.header), ID (#menu) ou texto ("dólar")</p>
+                </div>
+            `;
+        }
+        if (status) {
+            status.innerHTML = '❌ Nenhum resultado para "' + termo + '"';
+            status.style.color = '#f85149';
+        }
+    }
+}
+
+function limparBusca() {
+    const input = document.getElementById('searchInput');
+    if (input) {
+        input.value = '';
+    }
+    const btnClear = document.getElementById('btnClear');
+    if (btnClear) btnClear.style.display = 'none';
+    filtrarElementos();
+}
+
+function mostrarResultados(elementos) {
+    if (elementos && elementos.length > 0 && 
+        (elementos === dadosMapeados || elementos.length === dadosMapeados.length)) {
+        elementosCompletos = elementos;
+    }
+
+    const estadoInicial = document.getElementById('estadoInicial');
+    const lista = document.getElementById('resultadosLista');
+    
+    if (!elementos || elementos.length === 0) {
+        if (estadoInicial) estadoInicial.style.display = 'flex';
+        if (lista) lista.style.display = 'none';
+        return;
+    }
+    
+    if (estadoInicial) estadoInicial.style.display = 'none';
+    if (lista) lista.style.display = 'block';
+    
+    const container = document.getElementById('resultadosContainer');
+    let html = '<div class="lista-header">📌 ' + elementos.length + ' elementos</div><ul class="lista-elementos">';
+    
+    for (let i = 0; i < elementos.length; i++) {
+        const elem = elementos[i];
         const texto = elem.texto ? elem.texto.slice(0, 60) : 'sem texto';
+        const idx = elementosCompletos.indexOf(elem);
+        const indexReal = idx >= 0 ? idx : 0;
         html += `
-            <li onclick="mostrarModal(${index})">
+            <li onclick="mostrarModal(${indexReal})">
                 <span class="tag">${elem.tag || '?'}</span>
-                ${elem.classe ? `<span class="classe">.${elem.classe.slice(0, 20)}</span>` : ''}
-                ${elem.id ? `<span class="id">#${elem.id}</span>` : ''}
-                <span class="texto">"${texto}"</span>
+                ${elem.classe ? '<span class="classe">.' + elem.classe.slice(0, 20) + '</span>' : ''}
+                ${elem.id ? '<span class="id">#' + elem.id + '</span>' : ''}
+                <span class="texto">"' + texto + '"</span>
                 <span class="badge">🔍</span>
             </li>
         `;
-    });
+    }
     html += '</ul>';
-    container.innerHTML = html;
+    
+    container.innerHTML = `
+        <div id="estadoInicial" class="estado-inicial" style="display:none;">
+            <img src="/static/gif2.gif" alt="Mapeie um site" class="gif-placeholder">
+            <h3>https://github.com/alcitech7-oss</h3>
+            <p>Digite a URL acima e clique em <strong>"Mapear"</strong></p>
+        </div>
+        <div id="resultadosLista">${html}</div>
+    `;
 }
 
 function mostrarModal(index) {
-    const elemento = ultimosResultados[index] || dadosMapeados[index];
+    const elemento = ultimosResultados[index] || dadosMapeados[index] || elementosCompletos[index];
     if (!elemento) return;
 
     const body = document.getElementById('modalBody');
@@ -165,16 +263,16 @@ function mostrarModal(index) {
             <button class="btn-copiar" onclick="copiarSeletor('${gerarCodigoPlaywright(elemento)}', 'Playwright')">📋 Copiar</button>
         </div>
     `;
-    if (elemento.texto) html += `<div class="detalhe-item"><label>Texto</label><code>${elemento.texto}</code></div>`;
-    if (elemento.link) html += `<div class="detalhe-item"><label>Link</label><code>${elemento.link}</code></div>`;
+    if (elemento.texto) html += '<div class="detalhe-item"><label>Texto</label><code>' + elemento.texto + '</code></div>';
+    if (elemento.link) html += '<div class="detalhe-item"><label>Link</label><code>' + elemento.link + '</code></div>';
 
     body.innerHTML = html;
     document.getElementById('elementoModal').style.display = 'flex';
 }
 
 function gerarCodigoPlaywright(elemento) {
-    if (elemento.seletor_css && elemento.seletor_css !== 'N/A') return `page.locator("${elemento.seletor_css}")`;
-    if (elemento.xpath && elemento.xpath !== 'N/A') return `page.locator("xpath=${elemento.xpath}")`;
+    if (elemento.seletor_css && elemento.seletor_css !== 'N/A') return 'page.locator("' + elemento.seletor_css + '")';
+    if (elemento.xpath && elemento.xpath !== 'N/A') return 'page.locator("xpath=' + elemento.xpath + '")';
     return '# Seletor não disponível';
 }
 
@@ -183,17 +281,19 @@ function copiarSeletor(texto, tipo) {
         mostrarToast('Não há seletor para copiar', 'error');
         return;
     }
-    navigator.clipboard.writeText(texto).then(() => {
-        document.querySelectorAll('.btn-copiar').forEach(b => {
+    navigator.clipboard.writeText(texto).then(function() {
+        const botoes = document.querySelectorAll('.btn-copiar');
+        for (let i = 0; i < botoes.length; i++) {
+            const b = botoes[i];
             if (b.innerText.includes(tipo) || b.innerText.includes('📋')) {
                 const original = b.innerText;
                 b.innerText = '✅ Copiado!';
                 b.classList.add('copiado');
-                setTimeout(() => { b.innerText = original; b.classList.remove('copiado'); }, 2000);
+                setTimeout(function() { b.innerText = original; b.classList.remove('copiado'); }, 2000);
             }
-        });
+        }
         mostrarToast('✅ Seletor copiado!', 'success');
-    }).catch(() => mostrarToast('Copie manualmente: Ctrl+C', 'error'));
+    }).catch(function() { mostrarToast('Copie manualmente: Ctrl+C', 'error'); });
 }
 
 function fecharModal() {
@@ -205,52 +305,58 @@ async function exportar(formato) {
         const response = await fetch('/exportar', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ formato })
+            body: JSON.stringify({ formato: formato })
         });
-        if (!response.ok) throw new Error('Erro ao exportar');
+
+        if (!response.ok) {
+            const erro = await response.json();
+            throw new Error(erro.erro || 'Erro ao exportar');
+        }
+
         const blob = await response.blob();
+
+        if ('showSaveFilePicker' in window) {
+            try {
+                const extensoes = { 'excel': '.xlsx', 'json': '.json', 'csv': '.csv' };
+                const handle = await window.showSaveFilePicker({
+                    suggestedName: 'mapa_' + Date.now() + extensoes[formato],
+                    types: [{
+                        description: formato.toUpperCase() + ' file',
+                        accept: { 'application/octet-stream': [extensoes[formato]] }
+                    }]
+                });
+
+                const writable = await handle.createWritable();
+                await writable.write(blob);
+                await writable.close();
+
+                mostrarToast('✅ ' + formato.toUpperCase() + ' salvo com sucesso!', 'success');
+                return;
+            } catch (err) {
+                if (err.name === 'AbortError' || err.name === 'SecurityError') {
+                    mostrarToast('⏹️ Salvamento cancelado', 'info');
+                    return;
+                }
+                console.warn('Fallback para download automático:', err);
+            }
+        }
+
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `mapa.${formato === 'excel' ? 'xlsx' : formato}`;
+        a.download = 'mapa_' + Date.now() + '.' + (formato === 'excel' ? 'xlsx' : formato);
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-        mostrarToast(`📥 ${formato.toUpperCase()} baixado com sucesso!`, 'success');
+
+        mostrarToast('📥 ' + formato.toUpperCase() + ' baixado!', 'success');
+
     } catch (error) {
-        mostrarToast('Erro ao exportar: ' + error.message, 'error');
+        mostrarToast('❌ Erro: ' + error.message, 'error');
+        console.error(error);
     }
 }
-
-function limparBusca() {
-    document.getElementById('buscaInput').value = '';
-    document.getElementById('resultadoBusca').innerHTML = '';
-    if (dadosMapeados.length > 0) mostrarResultados(dadosMapeados);
-}
-
-document.addEventListener('DOMContentLoaded', function() {
-    document.getElementById('urlInput').addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') mapear();
-    });
-    
-    document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape') fecharModal();
-    });
-    
-    document.getElementById('elementoModal').addEventListener('click', function(e) {
-        if (e.target === this) fecharModal();
-    });
-    
-    document.getElementById('confirmModal').addEventListener('click', function(e) {
-        if (e.target === this) {
-            document.getElementById('confirmModal').style.display = 'none';
-            mostrarToast('Mapeamento cancelado', 'error');
-        }
-    });
-    
-    console.log('✅ Struct Analyzer PRO carregado!');
-});
 
 function mostrarEstadoInicial() {
     const container = document.getElementById('resultadosContainer');
@@ -273,46 +379,32 @@ function mostrarEstadoInicial() {
     `;
 }
 
-function mostrarResultados(elementos) {
-    const estadoInicial = document.getElementById('estadoInicial');
-    const lista = document.getElementById('resultadosLista');
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('urlInput').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') mapear();
+    });
     
-    if (!elementos || elementos.length === 0) {
-        if (estadoInicial) estadoInicial.style.display = 'flex';
-        if (lista) lista.style.display = 'none';
-        return;
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') fecharModal();
+    });
+    
+    var modal = document.getElementById('elementoModal');
+    if (modal) {
+        modal.addEventListener('click', function(e) {
+            if (e.target === this) fecharModal();
+        });
     }
     
-    if (estadoInicial) estadoInicial.style.display = 'none';
-    if (lista) lista.style.display = 'block';
+    var confirmModal = document.getElementById('confirmModal');
+    if (confirmModal) {
+        confirmModal.addEventListener('click', function(e) {
+            if (e.target === this) {
+                document.getElementById('confirmModal').style.display = 'none';
+                mostrarToast('Mapeamento cancelado', 'error');
+            }
+        });
+    }
     
-    const container = document.getElementById('resultadosContainer');
-    let html = `<div class="lista-header">📌 ${elementos.length} elementos</div><ul class="lista-elementos">`;
-    
-    elementos.forEach((elem, index) => {
-        const texto = elem.texto ? elem.texto.slice(0, 60) : 'sem texto';
-        html += `
-            <li onclick="mostrarModal(${index})">
-                <span class="tag">${elem.tag || '?'}</span>
-                ${elem.classe ? `<span class="classe">.${elem.classe.slice(0, 20)}</span>` : ''}
-                ${elem.id ? `<span class="id">#${elem.id}</span>` : ''}
-                <span class="texto">"${texto}"</span>
-                <span class="badge">🔍</span>
-            </li>
-        `;
-    });
-    html += '</ul>';
-    
-    container.innerHTML = `
-        <div id="estadoInicial" class="estado-inicial" style="display:none;">
-            <img src="/static/gif2.gif" alt="Mapeie um site" class="gif-placeholder">
-            <h3>https://github.com/alcitech7-oss</h3>
-            <p>Digite a URL acima e clique em <strong>"Mapear"</strong></p>
-        </div>
-        <div id="resultadosLista">${html}</div>
-    `;
-}
-
-document.addEventListener('DOMContentLoaded', function() {
     mostrarEstadoInicial();
+    console.log('✅ Struct Analyzer PRO carregado!');
 });

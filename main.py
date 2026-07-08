@@ -1,8 +1,3 @@
-"""
-🚀 LAUNCHER - Struct Analyzer Pro
-COM PLAYWRIGHT INCLUSO E ABERTURA INTELIGENTE DE NAVEGADOR
-"""
-
 import os
 import sys
 import webbrowser
@@ -82,9 +77,20 @@ app = Flask(__name__, template_folder=template_folder, static_folder=static_fold
 cache_mapa = {"dados": [], "url": "", "total": 0}
 
 
+# ============================================
+# ⭐ ROTA PRINCIPAL
+# ============================================
+
+
 @app.route("/")
 def index():
+    """Página inicial - dashboard"""
     return render_template("dashboard.html")
+
+
+# ============================================
+# ROTA DE MAPEAMENTO
+# ============================================
 
 
 @app.route("/mapear", methods=["POST"])
@@ -98,6 +104,7 @@ def mapear():
         cache_mapa["dados"] = dados
         cache_mapa["url"] = url
         cache_mapa["total"] = len(dados)
+
         tags = Counter()
         classes = Counter()
         for elem in dados:
@@ -105,6 +112,7 @@ def mapear():
             if elem.get("classe"):
                 for cls in elem["classe"].split():
                     classes[cls] += 1
+
         return jsonify(
             {
                 "sucesso": True,
@@ -112,12 +120,18 @@ def mapear():
                 "total": len(dados),
                 "tags": dict(tags.most_common(10)),
                 "classes": dict(classes.most_common(5)),
+                "todos": dados,
                 "primeiros": dados[:10],
             }
         )
     except Exception as e:
         traceback.print_exc()
         return jsonify({"erro": str(e)}), 500
+
+
+# ============================================
+# ROTA DE EXPORTAÇÃO
+# ============================================
 
 
 @app.route("/exportar", methods=["POST"])
@@ -163,6 +177,11 @@ def exportar():
     return jsonify({"erro": "Formato não suportado"}), 400
 
 
+# ============================================
+# ROTA PARA GERAR CÓDIGO
+# ============================================
+
+
 @app.route("/gerar_codigo", methods=["POST"])
 def gerar():
     dados = request.json
@@ -193,21 +212,16 @@ def abrir_navegador():
         chrome_found = False
         for path in chrome_paths:
             if os.path.exists(path):
-                # ✅ ESSA É A LINHA MÁGICA!
-                # --new-window = abre uma nova JANELA se não tiver nenhuma aberta
-                # Mas se já tiver uma aberta, abre uma nova ABA
                 subprocess.Popen([path, "--new-window", url], shell=False)
                 chrome_found = True
                 print("✅ Chrome aberto com sucesso!")
                 break
 
         if not chrome_found:
-            # Fallback: navegador padrão do Windows
             subprocess.Popen(["start", url], shell=True)
             print("✅ Navegador padrão aberto com sucesso!")
 
     except Exception as e:
-        # Último recurso: webbrowser
         try:
             webbrowser.open(url, new=2)
             print("✅ Tentando com webbrowser...")
