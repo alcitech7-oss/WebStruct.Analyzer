@@ -41,7 +41,7 @@ else:
     core_folder = "core"
     sys.path.insert(0, core_folder)
 
-from mapeador import analisar_estrutura, salvar_mapa_atual
+from mapeador import analisar_estrutura, salvar_mapa_atual, tirar_foto_rapida
 from processador import processar_estrutura
 from gerador_codigo import gerar_codigo
 from database import (
@@ -67,6 +67,29 @@ def index():
     return render_template("dashboard.html")
 
 
+# ============================================
+# ⭐ ROTA PARA FOTO RÁPIDA (SEM MAPEAMENTO) ⭐
+# ============================================
+@app.route("/previa_rapida", methods=["POST"])
+def previa_rapida():
+    """Retorna um screenshot rápido da página (sem scroll, sem mapeamento)"""
+    url = request.json.get("url", "")
+    if not url:
+        return jsonify({"erro": "URL não fornecida"}), 400
+    try:
+        screenshot = tirar_foto_rapida(url)
+        if screenshot:
+            return jsonify({"screenshot": screenshot})
+        else:
+            return jsonify({"erro": "Não foi possível capturar a foto"}), 500
+    except Exception as e:
+        print(f"❌ Erro ao capturar foto rápida: {e}")
+        return jsonify({"erro": str(e)}), 500
+
+
+# ============================================
+# ROTA DE MAPEAMENTO COMPLETO
+# ============================================
 @app.route("/mapear", methods=["POST"])
 def mapear():
     global cache_mapa
@@ -440,4 +463,4 @@ if __name__ == "__main__":
     print("🌐 Abrindo navegador...")
     threading.Thread(target=abrir_navegador, daemon=True).start()
     port = int(os.environ.get("PORT", 5000))
-app.run(host="0.0.0.0", port=port, debug=False)
+    app.run(host="0.0.0.0", port=port, debug=False)

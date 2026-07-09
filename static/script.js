@@ -89,7 +89,7 @@ async function mostrarInfoUrl() {
 }
 
 // ============================================
-// MAPEAR (COM VERIFICAÇÃO NO BANCO)
+// MAPEAR (COM FOTO RÁPIDA + 3 SEGUNDOS + OPÇÕES)
 // ============================================
 
 async function mapear() {
@@ -101,41 +101,82 @@ async function mapear() {
     urlParaMapear = url;
     
     try {
-        const params = new URLSearchParams();
-        params.append('url', url);
-        
-        const response = await fetch('/verificar_mapa?' + params.toString(), {
-            method: 'GET',
-            headers: {
-                'Accept': 'application/json'
-            }
+        // ⭐ 1. TIRA A FOTO RÁPIDA ⭐
+        const responsePreview = await fetch('/previa_rapida', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: url })
         });
+        const dataPreview = await responsePreview.json();
         
-        if (!response.ok) {
-            throw new Error(`Erro ${response.status}`);
-        }
-        
-        const data = await response.json();
-        
+        // 2. MOSTRA A FOTO NO MODAL (SEM OPÇÕES)
         const modalBody = document.getElementById('modalBodyConfirm');
         const modalFooter = document.getElementById('modalFooterConfirm');
         const confirmUrl = document.getElementById('confirmUrl');
-        
-        if (!modalBody || !modalFooter || !confirmUrl) {
-            console.error('Elementos do modal não encontrados!');
-            mostrarToast('Erro interno. Recarregue a página.', 'error');
-            return;
-        }
+        const previewDiv = document.getElementById('previaPagina');
+        const previewImg = document.getElementById('screenshotPreview');
         
         confirmUrl.textContent = url;
         
-        if (data.existe) {
+        // Prepara a foto
+        let fotoSrc = '';
+        if (dataPreview && dataPreview.screenshot) {
+            fotoSrc = 'data:image/png;base64,' + dataPreview.screenshot;
+            if (previewImg) {
+                previewImg.src = fotoSrc;
+            }
+            if (previewDiv) {
+                previewDiv.style.display = 'block';
+            }
+        } else {
+            if (previewDiv) {
+                previewDiv.style.display = 'none';
+            }
+        }
+        
+        // ⭐ MOSTRA O MODAL COM A FOTO E MENSAGEM DE CARREGAMENTO ⭐
+        modalBody.innerHTML = `
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+                <div style="background: #0d1117; padding: 12px; border-radius: 8px; border-left: 4px solid #58a6ff;">
+                    <p style="color: #58a6ff; font-weight: 600; margin: 0;">📸 Prévia da página</p>
+                    <p style="color: #8b949e; font-size: 13px; margin: 4px 0 0 0;">
+                        Aguarde... verificando mapa salvo.
+                    </p>
+                </div>
+                <div id="previaPagina" style="margin-top: 10px; text-align: center; display: ${fotoSrc ? 'block' : 'none'};">
+                    <img id="screenshotPreview" src="${fotoSrc}" alt="Prévia da página" style="max-width: 100%; max-height: 300px; border-radius: 8px; border: 1px solid #30363d;">
+                    <p style="color: #8b949e; font-size: 12px; margin-top: 4px;">📸 Prévia da página que será mapeada</p>
+                </div>
+            </div>
+        `;
+        
+        // Remove os botões do footer temporariamente
+        modalFooter.innerHTML = `
+            <span style="color: #8b949e; font-size: 14px;">⏳ Carregando informações...</span>
+        `;
+        
+        document.getElementById('confirmModal').style.display = 'flex';
+        
+        // ⭐ 3. ESPERA 3 SEGUNDOS ⭐
+        await new Promise(resolve => setTimeout(resolve, 3000));
+        
+        // ⭐ 4. VERIFICA O MAPA SALVO E MOSTRA AS OPÇÕES ⭐
+        const params = new URLSearchParams();
+        params.append('url', url);
+        const responseCheck = await fetch('/verificar_mapa?' + params.toString(), {
+            method: 'GET',
+            headers: { 'Accept': 'application/json' }
+        });
+        const dataCheck = await responseCheck.json();
+        
+        // Atualiza o modal com as opções
+        if (dataCheck.existe) {
             modalBody.innerHTML = `
                 <div style="display: flex; flex-direction: column; gap: 10px;">
                     <div style="background: #0d1117; padding: 12px; border-radius: 8px; border-left: 4px solid #3fb950;">
                         <p style="color: #3fb950; font-weight: 600; margin: 0;">✅ Último mapa encontrado!</p>
                         <p style="color: #8b949e; margin: 4px 0 0 0; font-size: 13px;">
-                            📅 ${data.data} — 📊 ${data.total_elementos} elementos
+                            📅 ${dataCheck.data} — 📊 ${dataCheck.total_elementos} elementos
                         </p>
                     </div>
                     <p style="color: #8b949e; font-size: 14px; margin: 0;">O que você quer fazer?</p>
@@ -171,20 +212,27 @@ async function mapear() {
             `;
         }
         
-        document.getElementById('confirmModal').style.display = 'flex';
+        // ⭐ MANTÉM A FOTO NO MODAL ⭐
+        const previewDiv2 = document.getElementById('previaPagina');
+        if (previewDiv2) {
+            previewDiv2.style.display = fotoSrc ? 'block' : 'none';
+            if (fotoSrc) {
+                previewDiv2.innerHTML = `
+                    <img id="screenshotPreview" src="${fotoSrc}" alt="Prévia da página" style="max-width: 100%; max-height: 300px; border-radius: 8px; border: 1px solid #30363d;">
+                    <p style="color: #8b949e; font-size: 12px; margin-top: 4px;">📸 Prévia da página que será mapeada</p>
+                `;
+            }
+        }
         
     } catch (error) {
-        console.error('Erro ao verificar mapa:', error);
-        const confirmUrl = document.getElementById('confirmUrl');
-        if (confirmUrl) {
-            confirmUrl.textContent = url;
-        }
+        console.error('Erro ao preparar mapeamento:', error);
+        mostrarToast('Erro ao carregar prévia da página', 'error');
         document.getElementById('confirmModal').style.display = 'flex';
     }
 }
 
 // ============================================
-// CONFIRMAR MAPEAMENTO (CORRIGIDO - SEM RESET ERRADO)
+// CONFIRMAR MAPEAMENTO
 // ============================================
 
 async function confirmarMapeamento(confirmado) {

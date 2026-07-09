@@ -3,6 +3,7 @@ import pandas as pd
 from datetime import datetime
 import os
 import time
+import base64
 
 
 def gerar_seletor_css(tag, classe, id_elem):
@@ -26,72 +27,77 @@ def gerar_xpath(tag, classe, id_elem, posicao):
     return f"//{tag}[{posicao}]"
 
 
-def analisar_estrutura(url):
+# ============================================
+# ⭐ FUNÇÃO PARA TIRAR FOTO RÁPIDA ⭐
+# ============================================
+
+
+def tirar_foto_rapida(url):
+    """Tira um screenshot rápido da página (sem scroll, sem mapeamento)"""
+    print(f"📸 Tirando foto rápida de: {url}")
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.launch(
+                headless=True, args=["--no-sandbox", "--disable-dev-shm-usage"]
+            )
+            page = browser.new_page()
+            page.goto(url, timeout=15000, wait_until="domcontentloaded")
+            page.wait_for_timeout(1000)
+            screenshot = page.screenshot(full_page=False)
+            screenshot_base64 = base64.b64encode(screenshot).decode("utf-8")
+            browser.close()
+            print("📸 Foto rápida capturada com sucesso!")
+            return screenshot_base64
+    except Exception as e:
+        print(f"❌ Erro ao tirar foto rápida: {e}")
+        return None
+
+
+# ============================================
+# ⭐ FUNÇÃO DE MAPEAMENTO COMPLETO ⭐
+# ============================================
+
+
+def analisar_estrutura(url, pegar_screenshot=False):
     """
-    Versão com Playwright - Janela visível durante todo o mapeamento.
+    Mapeia a estrutura de um site (completo, com scroll).
+    Se `pegar_screenshot` for True, retorna também um screenshot da página.
     """
     print(f"🔍 Analisando: {url}")
 
     dados = []
+    screenshot_base64 = None
 
     try:
         with sync_playwright() as p:
-            # ============================================================
-            # PASSO 1: ABRE A JANELA COM A PÁGINA
-            # ============================================================
-            browser = p.chromium.launch(headless=False, args=["--no-sandbox"])
+            browser = p.chromium.launch(
+                headless=True, args=["--no-sandbox", "--disable-dev-shm-usage"]
+            )
+
             page = browser.new_page()
             page.goto(url, timeout=30000, wait_until="domcontentloaded")
-            page.bring_to_front()
 
-            print("✅ Janela aberta! A página está visível.")
-            print("ℹ️ Você pode minimizar a janela se quiser.")
+            if pegar_screenshot:
+                page.wait_for_timeout(2000)
+                screenshot = page.screenshot(full_page=True)
+                screenshot_base64 = base64.b64encode(screenshot).decode("utf-8")
+                print("📸 Screenshot capturado!")
 
-            # ============================================================
-            # PASSO 2: MOSTRA A PÁGINA POR 3 SEGUNDOS
-            # ============================================================
-            print("👀 Mostrando a página por 3 segundos...")
-            page.wait_for_timeout(3000)
-
-            # ============================================================
-            # PASSO 3: VERIFICA SE O USUÁRIO FECHOU A JANELA
-            # ============================================================
-            try:
-                page.title()
-            except Exception:
-                print("❌ Você fechou a página! Mapeamento cancelado.")
-                browser.close()
-                return []
-
-            # ============================================================
-            # PASSO 4: SCROLL PARA CARREGAR CONTEÚDO DINÂMICO
-            # ============================================================
             print("⏳ Rolando a página para carregar conteúdo dinâmico...")
-
             page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
             page.wait_for_timeout(2000)
+            page.evaluate("window.scrollTo(0, document.body.scrollHeight * 0.5)")
+            page.wait_for_timeout(1500)
             page.evaluate("window.scrollTo(0, 0)")
-            page.wait_for_timeout(2000)
-            page.evaluate("window.scrollTo(0, document.body.scrollHeight * 0.3)")
-            page.wait_for_timeout(1500)
-            page.evaluate("window.scrollTo(0, document.body.scrollHeight * 0.6)")
-            page.wait_for_timeout(1500)
-            page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-            page.wait_for_timeout(2000)
+            page.wait_for_timeout(1000)
 
-            # ============================================================
-            # PASSO 5: ESPERA O CONTEÚDO DINÂMICO
-            # ============================================================
             print("⏳ Aguardando conteúdo dinâmico...")
             try:
-                page.wait_for_selector(".exchangeBarHeader__item__value", timeout=10000)
+                page.wait_for_selector(".exchangeBarHeader__item__value", timeout=5000)
                 print("✅ Conteúdo dinâmico carregado com sucesso!")
             except:
                 print("⚠️ Conteúdo dinâmico não encontrado (pode não estar na página).")
 
-            # ============================================================
-            # PASSO 6: MAPEIA TODOS OS ELEMENTOS
-            # ============================================================
             print("⏳ Coletando todos os elementos...")
             elementos = page.query_selector_all("*")
 
@@ -145,16 +151,17 @@ def analisar_estrutura(url):
             browser.close()
             print("✅ Processo concluído!")
 
-            return dados
+            if pegar_screenshot:
+                return dados, screenshot_base64
+            else:
+                return dados
 
     except Exception as e:
         print(f"❌ Erro no mapeamento: {e}")
-        return []
-
-
-# ============================================
-# FUNÇÃO PARA SALVAR MAPA NO BANCO
-# ============================================
+        if pegar_screenshot:
+            return [], None
+        else:
+            return []
 
 
 def salvar_mapa_atual(dados, url, descricao=None):

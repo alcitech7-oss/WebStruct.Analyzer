@@ -175,7 +175,7 @@
         </main>
 
         <!-- ============================================
-        MODAL DE COMPARAÇÃO MANUAL (NOVO!)
+        MODAL DE COMPARAÇÃO MANUAL
         ============================================ -->
         <div id="compararManualModal" class="modal" style="display:none;">
             <div class="modal-content" style="max-width: 700px;">
@@ -184,23 +184,16 @@
                     <button onclick="fecharCompararManualModal()" class="modal-close">&times;</button>
                 </div>
                 <div class="modal-body">
-                    <!-- URL -->
                     <div style="display: flex; gap: 8px; margin-bottom: 12px;">
                         <input type="text" id="compManualUrl" placeholder="URL do site" style="flex: 1; padding: 8px; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #e6edf3;">
                         <button onclick="buscarMapasParaComparar()" class="btn-primary" style="padding: 8px 16px;">🔍 Buscar</button>
                     </div>
-                    
-                    <!-- Lista de mapas -->
                     <div id="compManualLista" style="max-height: 300px; overflow-y: auto; margin-bottom: 12px; padding: 8px; background: #0d1117; border-radius: 8px; border: 1px solid #30363d;">
                         <p style="color: #8b949e; text-align: center; padding: 20px 0;">Digite a URL e clique em "Buscar"</p>
                     </div>
-                    
-                    <!-- Botão comparar -->
                     <button onclick="executarComparacaoManual()" class="btn-primary" style="width: 100%; justify-content: center;" id="btnCompararManual" disabled>
                         🔍 COMPARAR MAPAS SELECIONADOS
                     </button>
-                    
-                    <!-- Resultado -->
                     <div id="compManualResultado" style="display: none; margin-top: 15px; padding: 12px; background: #0d1117; border-radius: 8px; border-left: 4px solid #58a6ff;">
                         <div id="compManualResultadoConteudo"></div>
                     </div>
@@ -211,7 +204,9 @@
             </div>
         </div>
 
-        <!-- MODAL DE CONFIRMAÇÃO -->
+        <!-- ============================================
+        MODAL DE CONFIRMAÇÃO (COM FOTO DENTRO!)
+        ============================================ -->
         <div id="confirmModal" class="modal-confirm" style="display:none;">
             <div class="modal-confirm-content">
                 <div class="modal-confirm-header">
@@ -219,9 +214,15 @@
                     <h2>Confirmar Mapeamento</h2>
                 </div>
                 <div class="modal-confirm-body" id="modalBodyConfirm">
-                    <p>A página foi aberta em uma janela separada.</p>
+                    <p style="color: #8b949e; font-size: 14px;">📸 Confira a prévia da página abaixo e decida o que fazer.</p>
+                    
                     <p class="modal-confirm-url" id="confirmUrl">https://www.uol.com.br/</p>
-                    <p style="color: #8b949e; font-size: 14px;">Confira se é a página correta.</p>
+                    
+                    <!-- ⭐ FOTO DENTRO DA CAIXINHA ⭐ -->
+                    <div id="previaPagina" style="margin-top: 10px; text-align: center; display: none;">
+                        <img id="screenshotPreview" src="" alt="Prévia da página" style="max-width: 100%; max-height: 300px; border-radius: 8px; border: 1px solid #30363d;">
+                        <p style="color: #8b949e; font-size: 12px; margin-top: 4px;">📸 Prévia da página que será mapeada</p>
+                    </div>
                 </div>
                 <div class="modal-confirm-footer" id="modalFooterConfirm">
                     <button class="btn-confirm btn-sim" onclick="confirmarMapeamento(true)">🚀 MAPEAR</button>
