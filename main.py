@@ -41,6 +41,7 @@ else:
     core_folder = "core"
     sys.path.insert(0, core_folder)
 
+# ⭐ IMPORTA A FUNÇÃO tirar_foto_rapida ⭐
 from mapeador import analisar_estrutura, salvar_mapa_atual, tirar_foto_rapida
 from processador import processar_estrutura
 from gerador_codigo import gerar_codigo
