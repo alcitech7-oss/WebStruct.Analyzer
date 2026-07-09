@@ -4,6 +4,8 @@ import webbrowser
 import threading
 import time
 import subprocess
+import json
+from flask import Response
 
 
 def configurar_playwright():
@@ -25,7 +27,6 @@ configurar_playwright()
 
 from flask import Flask, render_template, jsonify, send_file, request
 import pandas as pd
-import json
 import io
 from collections import Counter
 import traceback
@@ -41,8 +42,12 @@ else:
     core_folder = "core"
     sys.path.insert(0, core_folder)
 
-# ⭐ IMPORTA A FUNÇÃO tirar_foto_rapida ⭐
-from mapeador import analisar_estrutura, salvar_mapa_atual, tirar_foto_rapida
+from mapeador import (
+    analisar_estrutura,
+    salvar_mapa_atual,
+    tirar_foto_rapida,
+    analisar_estrutura_com_progresso,
+)
 from processador import processar_estrutura
 from gerador_codigo import gerar_codigo
 from database import (
@@ -69,11 +74,10 @@ def index():
 
 
 # ============================================
-# ⭐ ROTA PARA FOTO RÁPIDA (SEM MAPEAMENTO) ⭐
+# ⭐ ROTA PARA FOTO RÁPIDA ⭐
 # ============================================
 @app.route("/previa_rapida", methods=["POST"])
 def previa_rapida():
-    """Retorna um screenshot rápido da página (sem scroll, sem mapeamento)"""
     url = request.json.get("url", "")
     if not url:
         return jsonify({"erro": "URL não fornecida"}), 400
@@ -89,7 +93,26 @@ def previa_rapida():
 
 
 # ============================================
-# ROTA DE MAPEAMENTO COMPLETO
+# ⭐ ROTA PARA MAPEAMENTO COM PROGRESSO ⭐
+# ============================================
+@app.route("/mapear_progresso", methods=["GET"])
+def mapear_progresso():
+    url = request.args.get("url", "")
+    if not url:
+        return jsonify({"erro": "URL não fornecida"}), 400
+
+    def generate():
+        try:
+            for progresso in analisar_estrutura_com_progresso(url):
+                yield f"data: {progresso}\n\n"
+        except Exception as e:
+            yield f"data: {json.dumps({'status': 'erro', 'mensagem': str(e)})}\n\n"
+
+    return Response(generate(), mimetype="text/event-stream")
+
+
+# ============================================
+# ROTA DE MAPEAMENTO COMPLETO (SEM PROGRESSO)
 # ============================================
 @app.route("/mapear", methods=["POST"])
 def mapear():

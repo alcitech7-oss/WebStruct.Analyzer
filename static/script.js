@@ -232,7 +232,7 @@ async function mapear() {
 }
 
 // ============================================
-// CONFIRMAR MAPEAMENTO
+// CONFIRMAR MAPEAMENTO (COM PROGRESSO)
 // ============================================
 
 async function confirmarMapeamento(confirmado) {
@@ -259,6 +259,7 @@ async function confirmarMapeamento(confirmado) {
     botao.disabled = true;
     botao.innerHTML = '⏳ Mapeando...';
 
+    // ⭐ MOSTRA O PROGRESSO ⭐
     const progressoContainer = document.getElementById('progressoContainer');
     const sucessoContainer = document.getElementById('sucessoContainer');
     progressoContainer.style.display = 'block';
@@ -268,75 +269,83 @@ async function confirmarMapeamento(confirmado) {
     const porcentagem = document.getElementById('progressoPorcentagem');
     const mensagem = document.getElementById('progressoMensagem');
 
-    const fases = [
-        { pct: 10, msg: 'Conectando ao site...' },
-        { pct: 30, msg: 'Carregando página...' },
-        { pct: 50, msg: 'Extraindo elementos...' },
-        { pct: 70, msg: 'Processando dados...' },
-        { pct: 90, msg: 'Finalizando...' }
-    ];
-
-    let progressoAtual = 0;
-    for (let i = 0; i < fases.length; i++) {
-        const fase = fases[i];
-        while (progressoAtual < fase.pct) {
-            progressoAtual += Math.random() * 2 + 1;
-            if (progressoAtual > fase.pct) progressoAtual = fase.pct;
-            const pct = Math.round(progressoAtual);
-            barra.style.width = pct + '%';
-            porcentagem.textContent = pct + '%';
-            mensagem.textContent = fase.msg;
-            await new Promise(function(r) { setTimeout(r, 80); });
-        }
-    }
+    barra.style.width = '0%';
+    porcentagem.textContent = '0%';
+    mensagem.textContent = '⏳ Iniciando mapeamento...';
 
     try {
-        const response = await fetch('/mapear', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ url: urlParaMapear })
-        });
+        // ⭐ USA EVENT SOURCE PARA PROGRESSO EM TEMPO REAL ⭐
+        const eventSource = new EventSource('/mapear_progresso?url=' + encodeURIComponent(urlParaMapear));
+        
+        let dadosFinal = [];
 
-        const data = await response.json();
-
-        if (data.erro) {
-            status.innerHTML = '❌ ' + data.erro;
-            status.style.color = '#f85149';
-            progressoContainer.style.display = 'none';
-            mostrarToast('Erro ao mapear: ' + data.erro, 'error');
-            return;
-        }
-
-        barra.style.width = '100%';
-        porcentagem.textContent = '100%';
-        mensagem.textContent = '✅ Mapeamento concluído!';
-
-        dadosMapeados = data.todos || data.primeiros || [];
-        elementosCompletos = dadosMapeados;
-        totalElementos = data.total;
-
-        document.getElementById('estatisticas').style.display = 'flex';
-        document.getElementById('statTotal').textContent = data.total;
-        document.getElementById('statTags').textContent = Object.keys(data.tags || {}).length;
-
-        progressoContainer.style.display = 'none';
-        sucessoContainer.style.display = 'block';
-        document.getElementById('sucessoDetalhes').textContent = data.total + ' elementos encontrados';
-
-        status.innerHTML = '✅ ' + data.total + ' elementos mapeados!';
-        status.style.color = '#3fb950';
-        mostrarToast('✅ ' + data.total + ' elementos mapeados com sucesso!', 'success');
-
-        mostrarResultados(dadosMapeados);
-
-        alternarBotao(false);
-
+        eventSource.onmessage = function(event) {
+            const data = JSON.parse(event.data);
+            
+            if (data.status === 'progresso') {
+                // Atualiza a barra de progresso
+                barra.style.width = data.percentual + '%';
+                porcentagem.textContent = data.percentual + '%';
+                mensagem.textContent = data.mensagem;
+                
+                // Atualiza o contador
+                document.getElementById('progressoAtual').textContent = data.atual;
+                document.getElementById('progressoTotal').textContent = data.total;
+                
+            } else if (data.status === 'concluido') {
+                // Mapeamento concluído!
+                barra.style.width = '100%';
+                porcentagem.textContent = '100%';
+                mensagem.textContent = '✅ Mapeamento concluído!';
+                
+                dadosFinal = data.dados;
+                
+                // Fecha a conexão
+                eventSource.close();
+                
+                // Processa os resultados
+                dadosMapeados = dadosFinal;
+                elementosCompletos = dadosMapeados;
+                totalElementos = dadosMapeados.length;
+                
+                document.getElementById('estatisticas').style.display = 'flex';
+                document.getElementById('statTotal').textContent = totalElementos;
+                document.getElementById('statTags').textContent = Object.keys(data.tags || {}).length;
+                
+                progressoContainer.style.display = 'none';
+                sucessoContainer.style.display = 'block';
+                document.getElementById('sucessoDetalhes').textContent = totalElementos + ' elementos encontrados';
+                
+                status.innerHTML = '✅ ' + totalElementos + ' elementos mapeados!';
+                status.style.color = '#3fb950';
+                mostrarToast('✅ ' + totalElementos + ' elementos mapeados com sucesso!', 'success');
+                
+                mostrarResultados(dadosMapeados);
+                alternarBotao(false);
+                
+                botao.disabled = false;
+                botao.innerHTML = '🚀 Map';
+                
+            } else if (data.status === 'erro') {
+                mostrarToast('❌ Erro: ' + data.mensagem, 'error');
+                eventSource.close();
+                botao.disabled = false;
+                botao.innerHTML = '🚀 Map';
+            }
+        };
+        
+        eventSource.onerror = function() {
+            mostrarToast('❌ Erro na conexão com o servidor', 'error');
+            eventSource.close();
+            botao.disabled = false;
+            botao.innerHTML = '🚀 Map';
+        };
+        
     } catch (error) {
         status.innerHTML = '❌ Erro: ' + error.message;
         status.style.color = '#f85149';
         progressoContainer.style.display = 'none';
         mostrarToast('Erro: ' + error.message, 'error');
-    } finally {
         botao.disabled = false;
         botao.innerHTML = '🚀 Map';
     }
