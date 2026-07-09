@@ -1,8 +1,3 @@
-"""
-MAPEADOR - WebStruct Analyzer
-Versão com Playwright - Janela visível durante o mapeamento
-"""
-
 from playwright.sync_api import sync_playwright
 import pandas as pd
 from datetime import datetime
@@ -37,7 +32,7 @@ def analisar_estrutura(url):
     """
     print(f"🔍 Analisando: {url}")
 
-    dados = []  # ← SEMPRE INICIALIZA AQUI
+    dados = []
 
     try:
         with sync_playwright() as p:
@@ -66,14 +61,13 @@ def analisar_estrutura(url):
             except Exception:
                 print("❌ Você fechou a página! Mapeamento cancelado.")
                 browser.close()
-                return []  # ← RETORNA LISTA VAZIA
+                return []
 
             # ============================================================
-            # PASSO 4: INICIA O MAPEAMENTO (COM JANELA VISÍVEL)
+            # PASSO 4: SCROLL PARA CARREGAR CONTEÚDO DINÂMICO
             # ============================================================
-            print("⏳ Iniciando mapeamento (janela visível)...")
+            print("⏳ Rolando a página para carregar conteúdo dinâmico...")
 
-            # Scroll pra carregar conteúdo dinâmico
             page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
             page.wait_for_timeout(2000)
             page.evaluate("window.scrollTo(0, 0)")
@@ -85,7 +79,20 @@ def analisar_estrutura(url):
             page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
             page.wait_for_timeout(2000)
 
-            # Pega TODOS os elementos
+            # ============================================================
+            # PASSO 5: ESPERA O CONTEÚDO DINÂMICO
+            # ============================================================
+            print("⏳ Aguardando conteúdo dinâmico...")
+            try:
+                page.wait_for_selector(".exchangeBarHeader__item__value", timeout=10000)
+                print("✅ Conteúdo dinâmico carregado com sucesso!")
+            except:
+                print("⚠️ Conteúdo dinâmico não encontrado (pode não estar na página).")
+
+            # ============================================================
+            # PASSO 6: MAPEIA TODOS OS ELEMENTOS
+            # ============================================================
+            print("⏳ Coletando todos os elementos...")
             elementos = page.query_selector_all("*")
 
             for posicao, elem in enumerate(elementos, 1):
@@ -135,55 +142,30 @@ def analisar_estrutura(url):
 
             print(f"✅ {len(dados)} elementos mapeados!")
 
-            # ============================================================
-            # PASSO 5: FECHA A JANELA
-            # ============================================================
-            print("🪟 Fechando a janela...")
             browser.close()
             print("✅ Processo concluído!")
 
-            return dados  # ← RETORNA A LISTA
+            return dados
 
     except Exception as e:
         print(f"❌ Erro no mapeamento: {e}")
-        return []  # ← RETORNA LISTA VAZIA EM CASO DE ERRO
+        return []
 
 
-def _salvar_excel(dados, nome_arquivo):
-    """Salva os dados em um arquivo Excel (usado apenas se chamado manualmente)"""
-    df = pd.DataFrame(dados)
+# ============================================
+# FUNÇÃO PARA SALVAR MAPA NO BANCO
+# ============================================
 
-    colunas = [
-        "posicao",
-        "profundidade",
-        "tag",
-        "classe",
-        "id",
-        "seletor_css",
-        "xpath",
-        "link",
-        "texto",
-        "pai",
-    ]
 
-    for col in colunas:
-        if col not in df.columns:
-            df[col] = ""
+def salvar_mapa_atual(dados, url, descricao=None):
+    """
+    Salva o mapa atual no banco de dados.
+    """
+    try:
+        from database import salvar_mapa
 
-    df = df[colunas]
-
-    with pd.ExcelWriter(nome_arquivo, engine="openpyxl") as writer:
-        df.to_excel(writer, sheet_name="Estrutura", index=False)
-
-        worksheet = writer.sheets["Estrutura"]
-        for column in worksheet.columns:
-            max_length = 0
-            column_letter = column[0].column_letter
-            for cell in column:
-                try:
-                    if len(str(cell.value)) > max_length:
-                        max_length = len(str(cell.value))
-                except:
-                    pass
-            adjusted_width = min(max_length + 2, 50)
-            worksheet.column_dimensions[column_letter].width = adjusted_width
+        mapa = salvar_mapa(dados, url, descricao)
+        return mapa
+    except Exception as e:
+        print(f"⚠️ Não foi possível salvar no banco: {e}")
+        return None

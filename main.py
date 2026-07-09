@@ -5,39 +5,23 @@ import threading
 import time
 import subprocess
 
-# ============================================
-# CONFIGURA O PLAYWRIGHT PARA USAR OS NAVEGADORES INCLUÍDOS
-# ============================================
-
 
 def configurar_playwright():
-    """Configura o Playwright para usar os navegadores incluídos no .exe"""
-
     if getattr(sys, "frozen", False):
-        # Estamos no .exe
         browsers_path = os.path.join(sys._MEIPASS, "playwright_browsers")
-
         if os.path.exists(browsers_path):
-            # Configura o Playwright para usar essa pasta
             os.environ["PLAYWRIGHT_BROWSERS_PATH"] = browsers_path
             print(f"✅ Navegadores configurados em: {browsers_path}")
         else:
             print("⚠️ Navegadores não encontrados no .exe")
-            print("📦 O Playwright vai baixar os navegadores na primeira execução...")
     else:
-        # Estamos em desenvolvimento
         browsers_path = os.path.join(os.getcwd(), "playwright_browsers")
         if os.path.exists(browsers_path):
             os.environ["PLAYWRIGHT_BROWSERS_PATH"] = browsers_path
             print(f"✅ Navegadores configurados em: {browsers_path}")
 
 
-# CHAMA ISSO ANTES DE IMPORTAR O PLAYWRIGHT
 configurar_playwright()
-
-# ============================================
-# IMPORTAÇÕES
-# ============================================
 
 from flask import Flask, render_template, jsonify, send_file, request
 import pandas as pd
@@ -45,10 +29,6 @@ import json
 import io
 from collections import Counter
 import traceback
-
-# ============================================
-# CONFIGURA AS PASTAS PARA O .EXE
-# ============================================
 
 if getattr(sys, "frozen", False):
     template_folder = os.path.join(sys._MEIPASS, "templates")
@@ -61,36 +41,30 @@ else:
     core_folder = "core"
     sys.path.insert(0, core_folder)
 
-# ============================================
-# IMPORTA AS FUNÇÕES DO CORE
-# ============================================
-
-from mapeador import analisar_estrutura
+from mapeador import analisar_estrutura, salvar_mapa_atual
 from processador import processar_estrutura
 from gerador_codigo import gerar_codigo
+from database import (
+    criar_tabelas,
+    salvar_mapa,
+    buscar_ultimo_mapa,
+    listar_mapas,
+    comparar_mapas,
+    contar_mapas,
+    contar_mapas_por_url,
+    SessionLocal,
+    Mapa,
+)
 
-# ============================================
-# APP FLASK
-# ============================================
+criar_tabelas()
 
 app = Flask(__name__, template_folder=template_folder, static_folder=static_folder)
 cache_mapa = {"dados": [], "url": "", "total": 0}
 
 
-# ============================================
-# ⭐ ROTA PRINCIPAL
-# ============================================
-
-
 @app.route("/")
 def index():
-    """Página inicial - dashboard"""
     return render_template("dashboard.html")
-
-
-# ============================================
-# ROTA DE MAPEAMENTO
-# ============================================
 
 
 @app.route("/mapear", methods=["POST"])
@@ -129,9 +103,252 @@ def mapear():
         return jsonify({"erro": str(e)}), 500
 
 
-# ============================================
-# ROTA DE EXPORTAÇÃO
-# ============================================
+@app.route("/salvar_mapa", methods=["POST"])
+def salvar_mapa_rota():
+    global cache_mapa
+    if not cache_mapa["dados"]:
+        return jsonify({"erro": "Nenhum mapa para salvar"}), 400
+
+    dados = cache_mapa["dados"]
+    url = cache_mapa["url"]
+    descricao = request.json.get(
+        "descricao", f"Mapa gerado em {time.strftime('%Y-%m-%d %H:%M')}"
+    )
+
+    mapa = salvar_mapa(dados, url, descricao)
+
+    if mapa:
+        return jsonify(
+            {
+                "sucesso": True,
+                "id": mapa.id,
+                "total": mapa.total_elementos,
+                "mensagem": f"Mapa salvo com sucesso! ID: {mapa.id}",
+            }
+        )
+    else:
+        return jsonify({"erro": "Erro ao salvar mapa"}), 500
+
+
+@app.route("/listar_mapas", methods=["GET"])
+def listar_mapas_rota():
+    url = request.args.get("url")
+    mapas = listar_mapas(url=url, limite=50)
+    return jsonify({"mapas": mapas, "total": len(mapas)})
+
+
+@app.route("/comparar_mapas", methods=["POST"])
+def comparar_mapas_rota():
+    global cache_mapa
+    if not cache_mapa["dados"]:
+        return jsonify({"erro": "Nenhum mapa atual para comparar"}), 400
+
+    url = cache_mapa["url"]
+
+    from database import SessionLocal, Mapa, Elemento
+
+    session = SessionLocal()
+
+    try:
+        mapa_anterior = (
+            session.query(Mapa)
+            .filter(Mapa.url == url)
+            .order_by(Mapa.data_mapeamento.desc())
+            .first()
+        )
+
+        if not mapa_anterior:
+            return jsonify(
+                {
+                    "status": "primeiro_mapa",
+                    "mensagem": "Este é o primeiro mapa salvo para esta URL.",
+                }
+            )
+
+        elementos_anteriores = []
+        for elem in mapa_anterior.elementos:
+            elementos_anteriores.append(
+                {
+                    "posicao": elem.posicao,
+                    "profundidade": elem.profundidade,
+                    "tag": elem.tag,
+                    "classe": elem.classe,
+                    "id": elem.elemento_id,
+                    "link": elem.link,
+                    "texto": elem.texto,
+                    "pai": elem.pai,
+                    "seletor_css": elem.seletor_css,
+                    "xpath": elem.xpath,
+                    "estavel": elem.estavel,
+                }
+            )
+
+        from database import comparar_mapas
+
+        comparacao = comparar_mapas(cache_mapa["dados"], mapa_anterior)
+
+        return jsonify(
+            {
+                "status": "comparado",
+                "comparacao": comparacao,
+                "mapa_anterior_id": mapa_anterior.id,
+                "data_anterior": mapa_anterior.data_mapeamento.strftime(
+                    "%Y-%m-%d %H:%M:%S"
+                ),
+                "total_mudancas": len(comparacao["mudaram"]),
+                "total_sumidos": len(comparacao["sumiram"]),
+                "total_novos": len(comparacao["novos"]),
+                "total_iguais": len(comparacao["iguais"]),
+            }
+        )
+
+    except Exception as e:
+        print(f"❌ Erro ao comparar mapas: {e}")
+        import traceback
+
+        traceback.print_exc()
+        return jsonify({"erro": str(e)}), 500
+    finally:
+        session.close()
+
+
+@app.route("/estatisticas_banco", methods=["GET"])
+def estatisticas_banco():
+    total = contar_mapas()
+    return jsonify({"total_mapas": total})
+
+
+@app.route("/verificar_mapa", methods=["GET"])
+def verificar_mapa():
+    url = request.args.get("url", "")
+    if not url:
+        return jsonify({"erro": "URL não fornecida"}), 400
+
+    mapa = buscar_ultimo_mapa(url)
+
+    if mapa:
+        return jsonify(
+            {
+                "existe": True,
+                "id": mapa.id,
+                "data": mapa.data_mapeamento.strftime("%Y-%m-%d %H:%M"),
+                "total_elementos": mapa.total_elementos,
+                "descricao": mapa.descricao,
+                "total_mapas": contar_mapas_por_url(url),
+            }
+        )
+    else:
+        return jsonify({"existe": False})
+
+
+@app.route("/carregar_mapa", methods=["GET"])
+def carregar_mapa():
+    url = request.args.get("url", "")
+    if not url:
+        return jsonify({"erro": "URL não fornecida"}), 400
+
+    session = SessionLocal()
+
+    try:
+        mapa = (
+            session.query(Mapa)
+            .filter(Mapa.url == url)
+            .order_by(Mapa.data_mapeamento.desc())
+            .first()
+        )
+
+        if not mapa:
+            return jsonify({"erro": "Nenhum mapa encontrado"}), 404
+
+        elementos_dict = []
+        for elem in mapa.elementos:
+            elementos_dict.append(
+                {
+                    "posicao": elem.posicao,
+                    "profundidade": elem.profundidade,
+                    "tag": elem.tag,
+                    "classe": elem.classe,
+                    "id": elem.elemento_id,
+                    "link": elem.link,
+                    "texto": elem.texto,
+                    "pai": elem.pai,
+                    "seletor_css": elem.seletor_css,
+                    "xpath": elem.xpath,
+                    "estavel": elem.estavel,
+                }
+            )
+
+        tags = Counter()
+        for elem in elementos_dict:
+            tags[elem.get("tag", "desconhecido")] += 1
+
+        return jsonify(
+            {
+                "sucesso": True,
+                "id": mapa.id,
+                "total": len(elementos_dict),
+                "elementos": elementos_dict,
+                "tags": dict(tags.most_common(10)),
+                "data": mapa.data_mapeamento.strftime("%Y-%m-%d %H:%M:%S"),
+            }
+        )
+
+    except Exception as e:
+        print(f"❌ Erro ao carregar mapa: {e}")
+        import traceback
+
+        traceback.print_exc()
+        return jsonify({"erro": str(e)}), 500
+    finally:
+        session.close()
+
+
+@app.route("/carregar_mapa_por_id", methods=["GET"])
+def carregar_mapa_por_id():
+    mapa_id = request.args.get("id")
+    if not mapa_id:
+        return jsonify({"erro": "ID não fornecido"}), 400
+
+    session = SessionLocal()
+
+    try:
+        mapa = session.query(Mapa).filter(Mapa.id == mapa_id).first()
+
+        if not mapa:
+            return jsonify({"erro": "Mapa não encontrado"}), 404
+
+        elementos_dict = []
+        for elem in mapa.elementos:
+            elementos_dict.append(
+                {
+                    "posicao": elem.posicao,
+                    "profundidade": elem.profundidade,
+                    "tag": elem.tag,
+                    "classe": elem.classe,
+                    "id": elem.elemento_id,
+                    "link": elem.link,
+                    "texto": elem.texto,
+                    "pai": elem.pai,
+                    "seletor_css": elem.seletor_css,
+                    "xpath": elem.xpath,
+                    "estavel": elem.estavel,
+                }
+            )
+
+        return jsonify(
+            {
+                "sucesso": True,
+                "id": mapa.id,
+                "total": len(elementos_dict),
+                "elementos": elementos_dict,
+                "data": mapa.data_mapeamento.strftime("%Y-%m-%d %H:%M:%S"),
+            }
+        )
+
+    except Exception as e:
+        return jsonify({"erro": str(e)}), 500
+    finally:
+        session.close()
 
 
 @app.route("/exportar", methods=["POST"])
@@ -177,11 +394,6 @@ def exportar():
     return jsonify({"erro": "Formato não suportado"}), 400
 
 
-# ============================================
-# ROTA PARA GERAR CÓDIGO
-# ============================================
-
-
 @app.route("/gerar_codigo", methods=["POST"])
 def gerar():
     dados = request.json
@@ -192,18 +404,11 @@ def gerar():
     return jsonify({"codigo": codigo})
 
 
-# ============================================
-# FUNÇÃO PARA ABRIR O NAVEGADOR (INTELIGENTE)
-# ============================================
-
-
 def abrir_navegador():
-    """Abre o navegador no localhost. Se não tiver nenhum aberto, abre um novo."""
     time.sleep(1.5)
     url = "http://127.0.0.1:5000"
 
     try:
-        # Tenta abrir no Chrome (se estiver instalado)
         chrome_paths = [
             "C:/Program Files/Google/Chrome/Application/chrome.exe",
             "C:/Program Files (x86)/Google/Chrome/Application/chrome.exe",
@@ -229,10 +434,6 @@ def abrir_navegador():
             print(f"❌ Erro ao abrir navegador: {e}")
             print(f"📋 Abra manualmente: {url}")
 
-
-# ============================================
-# MAIN
-# ============================================
 
 if __name__ == "__main__":
     print("🚀 Struct Analyzer Pro")

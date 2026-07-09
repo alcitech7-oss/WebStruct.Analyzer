@@ -9,7 +9,6 @@
 </head>
 <body>
     <div class="container">
-        <!-- Cabeçalho -->
         <header class="header">
             <div class="logo">
                 <div class="logo-icon">🌍</div>
@@ -21,9 +20,7 @@
             <p class="subtitle">Map any website and export to Excel, JSON, or CSV.</p>
         </header>
 
-        <!-- Área principal -->
         <main>
-            <!-- CAIXA DE INSTRUÇÕES -->
             <div class="instrucoes-box">
                 <div class="instrucoes-header">
                     <span class="instrucoes-icon">📖</span>
@@ -36,37 +33,29 @@
                 </ol>
             </div>
 
-            <!-- BARRA DE BUSCA DINÂMICA -->
-            <div class="search-container">
-                <div class="search-box">
-                    <span class="search-icon">🔎</span>
-                    <input 
-                        type="text" 
-                        id="searchInput" 
-                        placeholder="Buscar por tag, classe, ID ou texto... Ex: div, .classe, #id, 'texto'"
-                        oninput="filtrarElementos()"
-                    >
-                    <button onclick="filtrarElementos()" class="btn-search">Buscar</button>
-                    <button onclick="limparBusca()" class="btn-search-clear" id="btnClear" style="display:none;">✕</button>
-                </div>
-                <div id="searchStatus" class="search-status">📌 0 elementos encontrados</div>
-            </div>
-
-            <!-- Input da URL -->
+            <!-- URL INPUT + BOTÃO PRINCIPAL -->
             <div class="url-input-wrapper">
                 <div class="url-input">
                     <span class="input-icon">🔗</span>
                     <input type="text" id="urlInput" placeholder="https://www.uol.com.br/" value="https://www.uol.com.br/">
-                    <button onclick="mapear()" id="btnMapear" class="btn-primary">
+                    <button id="btnPrincipal" class="btn-primary" onclick="mapear()">
                         🚀 Map
                     </button>
                 </div>
             </div>
 
-            <!-- Status -->
+            <!-- CAIXINHA DE INFO -->
+            <div id="urlInfo" style="display: none; margin-top: 8px; padding: 10px 14px; background: #0d1117; border-radius: 8px; border-left: 4px solid #58a6ff;">
+                <div id="urlInfoConteudo"></div>
+            </div>
+
+            <!-- ÁREA DE DECISÃO -->
+            <div id="areaDecisao" style="display: none; margin-top: 10px; padding: 15px; background: #161b22; border-radius: 12px; border: 1px solid #30363d;">
+                <div id="decisaoConteudo"></div>
+            </div>
+
             <div id="statusMapeamento" class="status"></div>
 
-            <!-- Progresso -->
             <div id="progressoContainer" style="display:none;" class="progresso-wrapper">
                 <div class="progresso-info">
                     <span id="progressoTexto" class="progresso-label">⏳ Mapping...</span>
@@ -78,7 +67,6 @@
                 <div id="progressoMensagem" class="progresso-mensagem">Starting...</div>
             </div>
 
-            <!-- Sucesso -->
             <div id="sucessoContainer" style="display:none;" class="sucesso-wrapper">
                 <div class="sucesso">
                     <span class="sucesso-icon">✅</span>
@@ -89,7 +77,6 @@
                 </div>
             </div>
 
-            <!-- Estatísticas -->
             <div id="estatisticas" style="display:none;" class="estatisticas-painel">
                 <div class="stat-card stat-card-total">
                     <span class="stat-icon">📊</span>
@@ -121,14 +108,62 @@
                 </div>
             </div>
 
-            <!-- Exportação -->
-            <div class="export-row">
-                <button onclick="exportar('excel')" class="btn-export btn-excel">📥 Excel</button>
-                <button onclick="exportar('json')" class="btn-export btn-json">📥 JSON</button>
-                <button onclick="exportar('csv')" class="btn-export btn-csv">📥 CSV</button>
+            <!-- EXPORTAÇÃO E BANCO -->
+            <div class="export-row" style="flex-direction: column; gap: 10px; align-items: stretch;">
+                <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+                    <button onclick="exportar('excel')" class="btn-export btn-excel">📥 Excel</button>
+                    <button onclick="exportar('json')" class="btn-export btn-json">📥 JSON</button>
+                    <button onclick="exportar('csv')" class="btn-export btn-csv">📥 CSV</button>
+                </div>
+                <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+                    <button onclick="salvarMapa()" class="btn-export btn-save" style="background: linear-gradient(135deg, #1f6feb, #58a6ff); color: white; padding: 10px 24px; border: none; border-radius: 10px; cursor: pointer; font-weight: 600; font-size: 14px; font-family: 'Inter', sans-serif; transition: all 0.3s ease;">
+                        💾 Salvar no Banco
+                    </button>
+                    <button onclick="abrirCompararManualModal()" class="btn-export btn-compare" style="background: linear-gradient(135deg, #9e6a03, #d29922); color: white; padding: 10px 24px; border: none; border-radius: 10px; cursor: pointer; font-weight: 600; font-size: 14px; font-family: 'Inter', sans-serif; transition: all 0.3s ease;">
+                        📊 Comparar
+                    </button>
+                    <button onclick="listarMapas()" class="btn-export btn-list" style="background: linear-gradient(135deg, #da2811, #111ec9); color: white; padding: 10px 24px; border: none; border-radius: 10px; cursor: pointer; font-weight: 600; font-size: 14px; font-family: 'Inter', sans-serif; transition: all 0.3s ease;">
+                        📋 Histórico
+                    </button>
+                </div>
             </div>
 
-            <!-- RESULTADOS -->
+            <!-- BARRA DE BUSCA -->
+            <div class="search-container">
+                <div class="search-box">
+                    <span class="search-icon">🔎</span>
+                    <input 
+                        type="text" 
+                        id="searchInput" 
+                        placeholder="Buscar por tag, classe, ID ou texto... Ex: div, .classe, #id, 'texto'"
+                        oninput="filtrarElementos()"
+                    >
+                    <button onclick="filtrarElementos()" class="btn-search">Buscar</button>
+                    <button onclick="limparBusca()" class="btn-search-clear" id="btnClear" style="display:none;">✕</button>
+                </div>
+                <div id="searchStatus" class="search-status">📌 0 elementos encontrados</div>
+            </div>
+
+            <!-- ÁREA CARREGAR MAPA -->
+            <div id="areaCarregarMapa" style="display: none; margin-top: 10px; padding: 15px; background: #161b22; border-radius: 12px; border: 1px solid #30363d;">
+                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px;">
+                    <span style="color: #8b949e; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">📂 Carregar Mapa Salvo</span>
+                    <span style="flex: 1; height: 1px; background: #30363d;"></span>
+                </div>
+                <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+                    <button onclick="carregarMapaSalvoDireto()" class="btn-export" style="background: linear-gradient(135deg, #1f6feb, #58a6ff); color: white; padding: 10px 24px; border: none; border-radius: 10px; cursor: pointer; font-weight: 600; font-size: 14px; font-family: 'Inter', sans-serif; transition: all 0.3s ease;">
+                        📂 Carregar Último Mapa
+                    </button>
+                    <button onclick="mapearNovo()" class="btn-export" style="background: linear-gradient(135deg, #238636, #2ea043); color: white; padding: 10px 24px; border: none; border-radius: 10px; cursor: pointer; font-weight: 600; font-size: 14px; font-family: 'Inter', sans-serif; transition: all 0.3s ease;">
+                        🔄 Re-Mapear
+                    </button>
+                </div>
+            </div>
+
+            <div id="bancoResultados" style="margin-top: 15px; padding: 15px; background: #161b22; border-radius: 12px; border: 1px solid #30363d; display: none;">
+                <div id="bancoConteudo"></div>
+            </div>
+
             <div id="resultadosContainer">
                 <div id="estadoInicial" class="estado-inicial">
                     <img src="/static/gif2.gif" alt="Mapeie um site" class="gif-placeholder">
@@ -139,26 +174,63 @@
             </div>
         </main>
 
-        <!-- Modal de Confirmação -->
+        <!-- ============================================
+        MODAL DE COMPARAÇÃO MANUAL (NOVO!)
+        ============================================ -->
+        <div id="compararManualModal" class="modal" style="display:none;">
+            <div class="modal-content" style="max-width: 700px;">
+                <div class="modal-header">
+                    <h2>📊 Comparar Mapas</h2>
+                    <button onclick="fecharCompararManualModal()" class="modal-close">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <!-- URL -->
+                    <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+                        <input type="text" id="compManualUrl" placeholder="URL do site" style="flex: 1; padding: 8px; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #e6edf3;">
+                        <button onclick="buscarMapasParaComparar()" class="btn-primary" style="padding: 8px 16px;">🔍 Buscar</button>
+                    </div>
+                    
+                    <!-- Lista de mapas -->
+                    <div id="compManualLista" style="max-height: 300px; overflow-y: auto; margin-bottom: 12px; padding: 8px; background: #0d1117; border-radius: 8px; border: 1px solid #30363d;">
+                        <p style="color: #8b949e; text-align: center; padding: 20px 0;">Digite a URL e clique em "Buscar"</p>
+                    </div>
+                    
+                    <!-- Botão comparar -->
+                    <button onclick="executarComparacaoManual()" class="btn-primary" style="width: 100%; justify-content: center;" id="btnCompararManual" disabled>
+                        🔍 COMPARAR MAPAS SELECIONADOS
+                    </button>
+                    
+                    <!-- Resultado -->
+                    <div id="compManualResultado" style="display: none; margin-top: 15px; padding: 12px; background: #0d1117; border-radius: 8px; border-left: 4px solid #58a6ff;">
+                        <div id="compManualResultadoConteudo"></div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button onclick="fecharCompararManualModal()" class="btn-secondary">Fechar</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL DE CONFIRMAÇÃO -->
         <div id="confirmModal" class="modal-confirm" style="display:none;">
             <div class="modal-confirm-content">
                 <div class="modal-confirm-header">
                     <span class="modal-confirm-icon">🔍</span>
                     <h2>Confirmar Mapeamento</h2>
                 </div>
-                <div class="modal-confirm-body">
+                <div class="modal-confirm-body" id="modalBodyConfirm">
                     <p>A página foi aberta em uma janela separada.</p>
                     <p class="modal-confirm-url" id="confirmUrl">https://www.uol.com.br/</p>
                     <p style="color: #8b949e; font-size: 14px;">Confira se é a página correta.</p>
                 </div>
-                <div class="modal-confirm-footer">
+                <div class="modal-confirm-footer" id="modalFooterConfirm">
                     <button class="btn-confirm btn-sim" onclick="confirmarMapeamento(true)">🚀 MAPEAR</button>
                     <button class="btn-confirm btn-nao" onclick="confirmarMapeamento(false)">❌ CANCELAR</button>
                 </div>
             </div>
         </div>
 
-        <!-- Modal de Detalhes -->
+        <!-- MODAL DE DETALHES -->
         <div id="elementoModal" class="modal" style="display:none;">
             <div class="modal-content">
                 <div class="modal-header">
@@ -172,7 +244,6 @@
             </div>
         </div>
 
-        <!-- Toast -->
         <div id="toast" class="toast" style="display:none;"></div>
     </div>
 

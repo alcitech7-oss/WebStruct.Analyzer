@@ -4,6 +4,10 @@ let totalElementos = 0;
 let urlParaMapear = '';
 let elementosCompletos = [];
 
+// VARIÁVEIS PARA COMPARAÇÃO MANUAL
+let mapasSelecionados = [];
+let mapasDisponiveis = [];
+
 function mostrarToast(mensagem, tipo = 'info') {
     const toast = document.getElementById('toast');
     toast.textContent = mensagem;
@@ -12,6 +16,82 @@ function mostrarToast(mensagem, tipo = 'info') {
     setTimeout(function() { toast.style.display = 'none'; }, 4000);
 }
 
+// ============================================
+// MOSTRA INFORMAÇÕES DA URL DIGITADA
+// ============================================
+
+async function mostrarInfoUrl() {
+    const url = document.getElementById('urlInput').value.trim();
+    const infoDiv = document.getElementById('urlInfo');
+    const conteudo = document.getElementById('urlInfoConteudo');
+    
+    if (!url) {
+        infoDiv.style.display = 'none';
+        return;
+    }
+    
+    try {
+        const params = new URLSearchParams();
+        params.append('url', url);
+        
+        const response = await fetch('/verificar_mapa?' + params.toString(), {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Erro ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.existe) {
+            conteudo.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                    <span style="color: #3fb950;">💡</span>
+                    <span style="color: #8b949e; font-size: 13px;">
+                        Existe <strong style="color: #e6edf3;">${data.total_mapas || 1}</strong> mapa(s) salvo(s) para esta URL
+                    </span>
+                    <span style="color: #484f58;">|</span>
+                    <span style="color: #8b949e; font-size: 13px;">
+                        Último: <strong style="color: #58a6ff;">${data.data}</strong>
+                    </span>
+                    <span style="color: #484f58;">|</span>
+                    <span style="color: #8b949e; font-size: 13px;">
+                        <strong style="color: #d29922;">${data.total_elementos}</strong> elementos
+                    </span>
+                </div>
+            `;
+            infoDiv.style.borderColor = '#3fb950';
+            infoDiv.style.display = 'block';
+        } else {
+            conteudo.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                    <span style="color: #d29922;">📭</span>
+                    <span style="color: #8b949e; font-size: 13px;">
+                        Nenhum mapa salvo para esta URL
+                    </span>
+                    <span style="color: #484f58;">|</span>
+                    <span style="color: #8b949e; font-size: 13px;">
+                        Clique em <strong style="color: #58a6ff;">"Map"</strong> para criar um novo
+                    </span>
+                </div>
+            `;
+            infoDiv.style.borderColor = '#d29922';
+            infoDiv.style.display = 'block';
+        }
+    } catch (error) {
+        console.error('Erro ao verificar URL:', error);
+        infoDiv.style.display = 'none';
+    }
+}
+
+// ============================================
+// MAPEAR (COM VERIFICAÇÃO NO BANCO)
+// ============================================
+
 async function mapear() {
     const url = document.getElementById('urlInput').value.trim();
     if (!url) {
@@ -19,9 +99,93 @@ async function mapear() {
         return;
     }
     urlParaMapear = url;
-    document.getElementById('confirmUrl').textContent = url;
-    document.getElementById('confirmModal').style.display = 'flex';
+    
+    try {
+        const params = new URLSearchParams();
+        params.append('url', url);
+        
+        const response = await fetch('/verificar_mapa?' + params.toString(), {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Erro ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        const modalBody = document.getElementById('modalBodyConfirm');
+        const modalFooter = document.getElementById('modalFooterConfirm');
+        const confirmUrl = document.getElementById('confirmUrl');
+        
+        if (!modalBody || !modalFooter || !confirmUrl) {
+            console.error('Elementos do modal não encontrados!');
+            mostrarToast('Erro interno. Recarregue a página.', 'error');
+            return;
+        }
+        
+        confirmUrl.textContent = url;
+        
+        if (data.existe) {
+            modalBody.innerHTML = `
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                    <div style="background: #0d1117; padding: 12px; border-radius: 8px; border-left: 4px solid #3fb950;">
+                        <p style="color: #3fb950; font-weight: 600; margin: 0;">✅ Último mapa encontrado!</p>
+                        <p style="color: #8b949e; margin: 4px 0 0 0; font-size: 13px;">
+                            📅 ${data.data} — 📊 ${data.total_elementos} elementos
+                        </p>
+                    </div>
+                    <p style="color: #8b949e; font-size: 14px; margin: 0;">O que você quer fazer?</p>
+                </div>
+            `;
+            modalFooter.innerHTML = `
+                <button onclick="carregarMapaSalvoDireto()" class="btn-confirm btn-sim" style="background: linear-gradient(135deg, #1f6feb, #58a6ff);">
+                    📂 Carregar Mapa
+                </button>
+                <button onclick="confirmarMapeamento(true)" class="btn-confirm btn-sim">
+                    🔄 Re-Mapear
+                </button>
+                <button onclick="confirmarMapeamento(false)" class="btn-confirm btn-nao">
+                    ❌ Cancelar
+                </button>
+            `;
+        } else {
+            modalBody.innerHTML = `
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                    <div style="background: #0d1117; padding: 12px; border-radius: 8px; border-left: 4px solid #d29922;">
+                        <p style="color: #d29922; font-weight: 600; margin: 0;">📭 Nenhum mapa salvo para esta URL</p>
+                    </div>
+                    <p style="color: #8b949e; font-size: 14px; margin: 0;">Deseja mapear este site agora?</p>
+                </div>
+            `;
+            modalFooter.innerHTML = `
+                <button onclick="confirmarMapeamento(true)" class="btn-confirm btn-sim">
+                    🚀 Mapear
+                </button>
+                <button onclick="confirmarMapeamento(false)" class="btn-confirm btn-nao">
+                    ❌ Cancelar
+                </button>
+            `;
+        }
+        
+        document.getElementById('confirmModal').style.display = 'flex';
+        
+    } catch (error) {
+        console.error('Erro ao verificar mapa:', error);
+        const confirmUrl = document.getElementById('confirmUrl');
+        if (confirmUrl) {
+            confirmUrl.textContent = url;
+        }
+        document.getElementById('confirmModal').style.display = 'flex';
+    }
 }
+
+// ============================================
+// CONFIRMAR MAPEAMENTO (CORRIGIDO - SEM RESET ERRADO)
+// ============================================
 
 async function confirmarMapeamento(confirmado) {
     document.getElementById('confirmModal').style.display = 'none';
@@ -30,11 +194,20 @@ async function confirmarMapeamento(confirmado) {
         document.getElementById('statusMapeamento').innerHTML = '❌ Mapeamento cancelado!';
         document.getElementById('statusMapeamento').style.color = '#f85149';
         mostrarToast('Mapeamento cancelado!', 'error');
+        
+        alternarBotao(true);
+        dadosMapeados = [];
+        elementosCompletos = [];
+        totalElementos = 0;
+        document.getElementById('urlInfo').style.display = 'none';
+        document.getElementById('areaDecisao').style.display = 'none';
+        document.getElementById('areaCarregarMapa').style.display = 'none';
+        
         return;
     }
 
     const status = document.getElementById('statusMapeamento');
-    const botao = document.getElementById('btnMapear');
+    const botao = document.getElementById('btnPrincipal');
     botao.disabled = true;
     botao.innerHTML = '⏳ Mapeando...';
 
@@ -108,6 +281,8 @@ async function confirmarMapeamento(confirmado) {
 
         mostrarResultados(dadosMapeados);
 
+        alternarBotao(false);
+
     } catch (error) {
         status.innerHTML = '❌ Erro: ' + error.message;
         status.style.color = '#f85149';
@@ -115,9 +290,146 @@ async function confirmarMapeamento(confirmado) {
         mostrarToast('Erro: ' + error.message, 'error');
     } finally {
         botao.disabled = false;
-        botao.innerHTML = '🚀 Mapear';
+        botao.innerHTML = '🚀 Map';
     }
 }
+
+// ============================================
+// CARREGAR MAPA DIRETO DO MODAL
+// ============================================
+
+async function carregarMapaSalvoDireto() {
+    const url = document.getElementById('urlInput').value.trim();
+    
+    if (!url) {
+        mostrarToast('❌ Digite uma URL primeiro!', 'error');
+        return;
+    }
+    
+    mostrarToast('📂 Carregando mapa do banco...', 'info');
+    
+    try {
+        const params = new URLSearchParams();
+        params.append('url', url);
+        
+        const response = await fetch('/carregar_mapa?' + params.toString(), {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            const textoErro = await response.text();
+            console.error('Resposta de erro:', textoErro);
+            throw new Error(`Erro ${response.status}: ${textoErro.substring(0, 100)}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.sucesso) {
+            if (!data.elementos || data.elementos.length === 0) {
+                mostrarToast('⚠️ O mapa salvo está vazio!', 'warning');
+                document.getElementById('statusMapeamento').innerHTML = '⚠️ Mapa vazio! Nenhum elemento encontrado.';
+                document.getElementById('statusMapeamento').style.color = '#d29922';
+                document.getElementById('confirmModal').style.display = 'none';
+                return;
+            }
+            
+            dadosMapeados = data.elementos;
+            elementosCompletos = dadosMapeados;
+            totalElementos = data.total;
+            
+            document.getElementById('estatisticas').style.display = 'flex';
+            document.getElementById('statTotal').textContent = data.total;
+            document.getElementById('statTags').textContent = Object.keys(data.tags || {}).length;
+            
+            document.getElementById('statusMapeamento').innerHTML = '✅ Mapa carregado do banco! ' + data.total + ' elementos';
+            document.getElementById('statusMapeamento').style.color = '#3fb950';
+            
+            mostrarResultados(dadosMapeados);
+            mostrarToast('📂 Mapa carregado com sucesso!', 'success');
+            
+            document.getElementById('areaCarregarMapa').style.display = 'none';
+            document.getElementById('confirmModal').style.display = 'none';
+
+            alternarBotao(false);
+            
+        } else {
+            mostrarToast('❌ ' + (data.erro || 'Erro ao carregar mapa'), 'error');
+        }
+    } catch (error) {
+        console.error('Erro detalhado:', error);
+        mostrarToast('❌ Erro ao carregar mapa: ' + error.message, 'error');
+    }
+}
+
+function mapearNovo() {
+    document.getElementById('areaCarregarMapa').style.display = 'none';
+    document.getElementById('confirmModal').style.display = 'none';
+    mapear();
+}
+
+// ============================================
+// CONTROLE DO BOTÃO PRINCIPAL
+// ============================================
+
+function alternarBotao(paraMap) {
+    const btn = document.getElementById('btnPrincipal');
+    if (!btn) return;
+    
+    if (paraMap) {
+        btn.innerHTML = '🚀 Map';
+        btn.onclick = function() { mapear(); };
+        btn.style.background = 'linear-gradient(135deg, #238636, #2ea043)';
+    } else {
+        btn.innerHTML = '🔄';
+        btn.onclick = function() { reiniciarComNovaUrl(); };
+        btn.style.background = 'linear-gradient(135deg, #da2811, #111ec9)';
+    }
+}
+
+function reiniciarComNovaUrl() {
+    const url = document.getElementById('urlInput').value.trim();
+    if (!url) {
+        mostrarToast('❌ Digite uma URL primeiro!', 'error');
+        return;
+    }
+    
+    dadosMapeados = [];
+    elementosCompletos = [];
+    totalElementos = 0;
+    
+    document.getElementById('estatisticas').style.display = 'none';
+    document.getElementById('bancoResultados').style.display = 'none';
+    document.getElementById('sucessoContainer').style.display = 'none';
+    document.getElementById('areaDecisao').style.display = 'none';
+    document.getElementById('areaCarregarMapa').style.display = 'none';
+    document.getElementById('urlInfo').style.display = 'none';
+    
+    const container = document.getElementById('resultadosContainer');
+    container.innerHTML = `
+        <div id="estadoInicial" class="estado-inicial">
+            <img src="/static/gif2.gif" alt="Mapeie um site" class="gif-placeholder">
+            <h3>https://github.com/alcitech7-oss</h3>
+            <p>Digite a URL acima e clique em <strong>"Map"</strong></p>
+        </div>
+        <div id="resultadosLista" style="display: none;"></div>
+    `;
+    
+    document.getElementById('statusMapeamento').innerHTML = '';
+    document.getElementById('searchInput').value = '';
+    document.getElementById('searchStatus').innerHTML = '📌 0 elementos encontrados';
+    
+    alternarBotao(true);
+    
+    mostrarInfoUrl();
+    mapear();
+}
+
+// ============================================
+// FILTRO E BUSCA
+// ============================================
 
 function filtrarElementos() {
     const input = document.getElementById('searchInput');
@@ -190,6 +502,10 @@ function limparBusca() {
     filtrarElementos();
 }
 
+// ============================================
+// RESULTADOS
+// ============================================
+
 function mostrarResultados(elementos) {
     if (elementos && elementos.length > 0 && 
         (elementos === dadosMapeados || elementos.length === dadosMapeados.length)) {
@@ -232,7 +548,7 @@ function mostrarResultados(elementos) {
         <div id="estadoInicial" class="estado-inicial" style="display:none;">
             <img src="/static/gif2.gif" alt="Mapeie um site" class="gif-placeholder">
             <h3>https://github.com/alcitech7-oss</h3>
-            <p>Digite a URL acima e clique em <strong>"Mapear"</strong></p>
+            <p>Digite a URL acima e clique em <strong>"Map"</strong></p>
         </div>
         <div id="resultadosLista">${html}</div>
     `;
@@ -300,6 +616,10 @@ function fecharModal() {
     document.getElementById('elementoModal').style.display = 'none';
 }
 
+// ============================================
+// EXPORTAÇÃO
+// ============================================
+
 async function exportar(formato) {
     try {
         const response = await fetch('/exportar', {
@@ -358,26 +678,353 @@ async function exportar(formato) {
     }
 }
 
-function mostrarEstadoInicial() {
-    const container = document.getElementById('resultadosContainer');
-    const estadoInicial = document.getElementById('estadoInicial');
-    const lista = document.getElementById('resultadosLista');
-    
-    if (estadoInicial) {
-        estadoInicial.style.display = 'flex';
-        if (lista) lista.style.display = 'none';
+// ============================================
+// FUNÇÕES DO BANCO DE DADOS
+// ============================================
+
+function mostrarBancoResultados(html, cor) {
+    var container = document.getElementById('bancoResultados');
+    var conteudo = document.getElementById('bancoConteudo');
+    if (!container || !conteudo) return;
+    container.style.display = 'block';
+    if (cor) {
+        container.style.borderColor = cor;
+    }
+    conteudo.innerHTML = html;
+}
+
+async function salvarMapa() {
+    if (!dadosMapeados || dadosMapeados.length === 0) {
+        mostrarToast('❌ Mapeie um site primeiro!', 'error');
         return;
     }
     
-    container.innerHTML = `
-        <div id="estadoInicial" class="estado-inicial">
-            <img src="/static/gif2.gif" alt="Mapeie um site" class="gif-placeholder">
-            <h3>https://github.com/alcitech7-oss</h3>
-            <p>Digite a URL acima e clique em <strong>"Mapear"</strong></p>
-        </div>
-        <div id="resultadosLista" style="display: none;"></div>
-    `;
+    mostrarToast('💾 Salvando mapa no banco...', 'info');
+    
+    try {
+        var response = await fetch('/salvar_mapa', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ descricao: 'Mapa salvo manualmente' })
+        });
+        
+        var data = await response.json();
+        
+        if (data.sucesso) {
+            mostrarBancoResultados(`
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <span style="font-size: 28px;">✅</span>
+                    <div>
+                        <strong style="color: #3fb950;">Mapa salvo com sucesso!</strong>
+                        <p style="color: #8b949e; margin: 4px 0 0 0; font-size: 13px;">
+                            ID: ${data.id} | ${data.total} elementos salvos
+                        </p>
+                    </div>
+                </div>
+            `, '#3fb950');
+            mostrarToast('✅ Mapa salvo com sucesso!', 'success');
+        } else {
+            mostrarToast('❌ ' + data.erro, 'error');
+        }
+    } catch (error) {
+        mostrarToast('❌ Erro ao salvar: ' + error.message, 'error');
+    }
 }
+
+async function listarMapas() {
+    try {
+        var response = await fetch('/listar_mapas', {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        
+        var data = await response.json();
+        
+        if (data.mapas && data.mapas.length > 0) {
+            var html = `
+                <div style="margin-bottom: 12px;">
+                    <strong style="color: #e6edf3;">📋 Histórico de Mapas (${data.total})</strong>
+                </div>
+                <div style="max-height: 300px; overflow-y: auto;">
+            `;
+            
+            for (var i = 0; i < data.mapas.length; i++) {
+                var m = data.mapas[i];
+                html += `
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: #0d1117; border-radius: 6px; margin-bottom: 4px; border-left: 3px solid #58a6ff;">
+                        <div>
+                            <span style="color: #e6edf3; font-weight: 600;">#${m.id}</span>
+                            <span style="color: #8b949e; font-size: 13px; margin-left: 10px;">${m.url}</span>
+                        </div>
+                        <div>
+                            <span style="color: #58a6ff; font-size: 13px;">${m.total_elementos} elementos</span>
+                            <span style="color: #8b949e; font-size: 12px; margin-left: 10px;">${m.data_mapeamento}</span>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            html += '</div>';
+            mostrarBancoResultados(html, '#58a6ff');
+        } else {
+            mostrarBancoResultados(`
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <span style="font-size: 28px;">📭</span>
+                    <div>
+                        <strong style="color: #8b949e;">Nenhum mapa salvo ainda</strong>
+                        <p style="color: #8b949e; margin: 4px 0 0 0; font-size: 13px;">
+                            Mapeie um site e clique em "Salvar no Banco" para começar.
+                        </p>
+                    </div>
+                </div>
+            `, '#8b949e');
+        }
+    } catch (error) {
+        mostrarToast('❌ Erro ao listar: ' + error.message, 'error');
+    }
+}
+
+// ============================================
+// COMPARAÇÃO MANUAL (ESCOLHA DE MAPAS)
+// ============================================
+
+function abrirCompararManualModal() {
+    document.getElementById('compararManualModal').style.display = 'flex';
+    document.getElementById('compManualResultado').style.display = 'none';
+    document.getElementById('btnCompararManual').disabled = true;
+    mapasSelecionados = [];
+    mapasDisponiveis = [];
+    
+    const urlAtual = document.getElementById('urlInput').value.trim();
+    if (urlAtual) {
+        document.getElementById('compManualUrl').value = urlAtual;
+        buscarMapasParaComparar();
+    }
+}
+
+function fecharCompararManualModal() {
+    document.getElementById('compararManualModal').style.display = 'none';
+}
+
+async function buscarMapasParaComparar() {
+    const url = document.getElementById('compManualUrl').value.trim();
+    if (!url) {
+        mostrarToast('❌ Digite uma URL!', 'error');
+        return;
+    }
+    
+    mostrarToast('📂 Buscando mapas...', 'info');
+    
+    try {
+        const response = await fetch('/listar_mapas?url=' + encodeURIComponent(url));
+        const data = await response.json();
+        
+        const lista = document.getElementById('compManualLista');
+        mapasDisponiveis = data.mapas || [];
+        
+        if (mapasDisponiveis.length === 0) {
+            lista.innerHTML = `<p style="color: #8b949e; text-align: center; padding: 20px 0;">📭 Nenhum mapa encontrado para esta URL</p>`;
+            return;
+        }
+        
+        let html = `
+            <div style="display: flex; justify-content: space-between; margin-bottom: 8px; padding: 4px 8px;">
+                <span style="color: #8b949e; font-size: 13px; font-weight: 600;">${mapasDisponiveis.length} mapas encontrados</span>
+                <span style="color: #8b949e; font-size: 13px;">${mapasSelecionados.length} selecionados</span>
+            </div>
+        `;
+        
+        mapasDisponiveis.forEach(function(mapa, index) {
+            const selecionado = mapasSelecionados.some(m => m.id === mapa.id);
+            html += `
+                <div onclick="toggleSelecaoMapa(${index})" style="display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; background: ${selecionado ? '#1c2333' : '#0d1117'}; border-radius: 4px; margin-bottom: 2px; cursor: pointer; border-left: 3px solid ${selecionado ? '#3fb950' : '#30363d'};">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="color: ${selecionado ? '#3fb950' : '#8b949e'}; font-size: 18px;">${selecionado ? '☑️' : '☐'}</span>
+                        <span style="color: #e6edf3; font-size: 13px;">${mapa.data_mapeamento}</span>
+                    </div>
+                    <span style="color: #8b949e; font-size: 13px;">${mapa.total_elementos} elementos</span>
+                </div>
+            `;
+        });
+        
+        lista.innerHTML = html;
+        atualizarBotaoCompararManual();
+        
+    } catch (error) {
+        mostrarToast('❌ Erro ao buscar mapas: ' + error.message, 'error');
+    }
+}
+
+function toggleSelecaoMapa(index) {
+    const mapa = mapasDisponiveis[index];
+    const idx = mapasSelecionados.findIndex(m => m.id === mapa.id);
+    
+    if (idx === -1) {
+        mapasSelecionados.push(mapa);
+    } else {
+        mapasSelecionados.splice(idx, 1);
+    }
+    
+    buscarMapasParaComparar();
+}
+
+function atualizarBotaoCompararManual() {
+    const btn = document.getElementById('btnCompararManual');
+    if (mapasSelecionados.length >= 2) {
+        btn.disabled = false;
+        btn.innerHTML = '🔍 COMPARAR ' + mapasSelecionados.length + ' MAPAS';
+        btn.style.opacity = '1';
+    } else {
+        btn.disabled = true;
+        btn.innerHTML = '🔍 COMPARAR (selecione pelo menos 2)';
+        btn.style.opacity = '0.6';
+    }
+}
+
+async function executarComparacaoManual() {
+    if (mapasSelecionados.length < 2) {
+        mostrarToast('❌ Selecione pelo menos 2 mapas!', 'error');
+        return;
+    }
+    
+    mostrarToast('📊 Carregando mapas selecionados...', 'info');
+    
+    try {
+        const mapasCarregados = [];
+        for (const mapaInfo of mapasSelecionados) {
+            const response = await fetch('/carregar_mapa_por_id?id=' + mapaInfo.id);
+            const data = await response.json();
+            if (data.sucesso) {
+                mapasCarregados.push({
+                    id: mapaInfo.id,
+                    data: mapaInfo.data_mapeamento,
+                    elementos: data.elementos,
+                    total: data.total
+                });
+            }
+        }
+        
+        if (mapasCarregados.length < 2) {
+            mostrarToast('❌ Não foi possível carregar os mapas', 'error');
+            return;
+        }
+        
+        const resultado = compararMultiplosMapas(mapasCarregados);
+        
+        const resultadoDiv = document.getElementById('compManualResultado');
+        const conteudo = document.getElementById('compManualResultadoConteudo');
+        resultadoDiv.style.display = 'block';
+        
+        let html = `
+            <div style="margin-bottom: 10px;">
+                <strong style="color: #e6edf3;">📊 Comparando ${mapasCarregados.length} mapas</strong>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 10px;">
+                <div style="background: #0d1117; padding: 8px; border-radius: 6px; text-align: center;">
+                    <span style="color: #3fb950; font-size: 18px; font-weight: 700;">${resultado.total_iguais}</span>
+                    <p style="color: #8b949e; font-size: 11px; margin: 0;">Iguais</p>
+                </div>
+                <div style="background: #0d1117; padding: 8px; border-radius: 6px; text-align: center;">
+                    <span style="color: #d29922; font-size: 18px; font-weight: 700;">${resultado.total_mudancas}</span>
+                    <p style="color: #8b949e; font-size: 11px; margin: 0;">Mudaram</p>
+                </div>
+                <div style="background: #0d1117; padding: 8px; border-radius: 6px; text-align: center;">
+                    <span style="color: #f85149; font-size: 18px; font-weight: 700;">${resultado.total_sumidos}</span>
+                    <p style="color: #8b949e; font-size: 11px; margin: 0;">Sumiram</p>
+                </div>
+                <div style="background: #0d1117; padding: 8px; border-radius: 6px; text-align: center;">
+                    <span style="color: #58a6ff; font-size: 18px; font-weight: 700;">${resultado.total_novos}</span>
+                    <p style="color: #8b949e; font-size: 11px; margin: 0;">Novos</p>
+                </div>
+            </div>
+            <div style="max-height: 150px; overflow-y: auto; padding: 8px; background: #0d1117; border-radius: 6px;">
+                <p style="color: #8b949e; font-size: 12px; margin: 0 0 4px 0;">📋 Mapas analisados:</p>
+                ${mapasCarregados.map(function(m) {
+                    return `<p style="color: #8b949e; font-size: 12px; margin: 2px 0;">📅 ${m.data} - ${m.total} elementos</p>`;
+                }).join('')}
+            </div>
+        `;
+        
+        conteudo.innerHTML = html;
+        mostrarToast('📊 Comparação concluída!', 'success');
+        
+    } catch (error) {
+        mostrarToast('❌ Erro: ' + error.message, 'error');
+    }
+}
+
+function compararMultiplosMapas(mapas) {
+    if (mapas.length < 2) {
+        return { total_iguais: 0, total_mudancas: 0, total_sumidos: 0, total_novos: 0 };
+    }
+    
+    const referencia = mapas[0].elementos;
+    const mapaRef = {};
+    referencia.forEach(function(elem) {
+        mapaRef[elem.posicao] = elem;
+    });
+    
+    const acumulador = {
+        iguais: [],
+        mudaram: [],
+        sumiram: [],
+        novos: []
+    };
+    
+    for (let i = 1; i < mapas.length; i++) {
+        const mapaAtual = mapas[i].elementos;
+        const mapaAtualObj = {};
+        mapaAtual.forEach(function(elem) {
+            mapaAtualObj[elem.posicao] = elem;
+        });
+        
+        for (const pos in mapaRef) {
+            if (pos in mapaAtualObj) {
+                const elemRef = mapaRef[pos];
+                const elemAtual = mapaAtualObj[pos];
+                if (elemRef.seletor_css !== elemAtual.seletor_css || 
+                    elemRef.xpath !== elemAtual.xpath || 
+                    elemRef.texto !== elemAtual.texto) {
+                    if (!acumulador.mudaram.includes(pos)) {
+                        acumulador.mudaram.push(pos);
+                    }
+                } else {
+                    if (!acumulador.iguais.includes(pos)) {
+                        acumulador.iguais.push(pos);
+                    }
+                }
+            } else {
+                if (!acumulador.sumiram.includes(pos)) {
+                    acumulador.sumiram.push(pos);
+                }
+            }
+        }
+        
+        for (const pos in mapaAtualObj) {
+            if (!(pos in mapaRef)) {
+                if (!acumulador.novos.includes(pos)) {
+                    acumulador.novos.push(pos);
+                }
+            }
+        }
+    }
+    
+    acumulador.iguais = [...new Set(acumulador.iguais)];
+    acumulador.mudaram = [...new Set(acumulador.mudaram)];
+    acumulador.sumiram = [...new Set(acumulador.sumiram)];
+    acumulador.novos = [...new Set(acumulador.novos)];
+    
+    return {
+        total_iguais: acumulador.iguais.length,
+        total_mudancas: acumulador.mudaram.length,
+        total_sumidos: acumulador.sumiram.length,
+        total_novos: acumulador.novos.length
+    };
+}
+
+// ============================================
+// INICIALIZAÇÃO
+// ============================================
 
 document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('urlInput').addEventListener('keypress', function(e) {
@@ -385,7 +1032,10 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape') fecharModal();
+        if (e.key === 'Escape') {
+            fecharModal();
+            fecharCompararManualModal();
+        }
     });
     
     var modal = document.getElementById('elementoModal');
@@ -405,6 +1055,38 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
+    var compModal = document.getElementById('compararManualModal');
+    if (compModal) {
+        compModal.addEventListener('click', function(e) {
+            if (e.target === this) fecharCompararManualModal();
+        });
+    }
+    
+    document.getElementById('urlInput').addEventListener('input', function() {
+        mostrarInfoUrl();
+    });
+    
     mostrarEstadoInicial();
     console.log('✅ Struct Analyzer PRO carregado!');
 });
+
+function mostrarEstadoInicial() {
+    const container = document.getElementById('resultadosContainer');
+    const estadoInicial = document.getElementById('estadoInicial');
+    const lista = document.getElementById('resultadosLista');
+    
+    if (estadoInicial) {
+        estadoInicial.style.display = 'flex';
+        if (lista) lista.style.display = 'none';
+        return;
+    }
+    
+    container.innerHTML = `
+        <div id="estadoInicial" class="estado-inicial">
+            <img src="/static/gif2.gif" alt="Mapeie um site" class="gif-placeholder">
+            <h3>https://github.com/alcitech7-oss</h3>
+            <p>Digite a URL acima e clique em <strong>"Map"</strong></p>
+        </div>
+        <div id="resultadosLista" style="display: none;"></div>
+    `;
+}
