@@ -308,6 +308,9 @@ async function confirmarMapeamento(confirmado) {
                 elementosCompletos = dadosMapeados;
                 totalElementos = dadosMapeados.length;
                 
+                document.getElementById('estatisticas').style.display = 'flex';
+                document.getElementById('statTotal').textContent = totalElementos;
+                document.getElementById('statTags').textContent = Object.keys(data.tags || {}).length;
                 
                 progressoContainer.style.display = 'none';
                 sucessoContainer.style.display = 'block';

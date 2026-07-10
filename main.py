@@ -93,7 +93,7 @@ def previa_rapida():
 
 
 # ============================================
-# ⭐ ROTA PARA MAPEAMENTO COM PROGRESSO ⭐
+# ⭐ ROTA PARA MAPEAMENTO COM PROGRESSO (CORRIGIDA) ⭐
 # ============================================
 @app.route("/mapear_progresso", methods=["GET"])
 def mapear_progresso():
@@ -102,8 +102,16 @@ def mapear_progresso():
         return jsonify({"erro": "URL não fornecida"}), 400
 
     def generate():
+        global cache_mapa
         try:
             for progresso in analisar_estrutura_com_progresso(url):
+                # ⭐ QUANDO CONCLUIR, PREENCHE O CACHE ⭐
+                data = json.loads(progresso)
+                if data.get("status") == "concluido":
+                    cache_mapa["dados"] = data.get("dados", [])
+                    cache_mapa["url"] = url
+                    cache_mapa["total"] = len(cache_mapa["dados"])
+                    print(f"✅ Cache atualizado: {cache_mapa['total']} elementos")
                 yield f"data: {progresso}\n\n"
         except Exception as e:
             yield f"data: {json.dumps({'status': 'erro', 'mensagem': str(e)})}\n\n"

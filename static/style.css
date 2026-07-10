@@ -362,9 +362,7 @@ body::before {
 }
 
 .stat-card-total .stat-value { color: #58a6ff; }
-.stat-card-tags .stat-value { color: #a371f7; }
-.stat-card-texto .stat-value { color: #3fb950; }
-.stat-card-links .stat-value { color: #f0883e; }
+
 
 .export-row {
     display: flex;
