@@ -45,6 +45,7 @@ else:
 from mapeador import (
     analisar_estrutura,
     salvar_mapa_atual,
+    tirar_foto_rapida,
     analisar_estrutura_com_progresso,
 )
 from processador import processar_estrutura
@@ -70,6 +71,25 @@ cache_mapa = {"dados": [], "url": "", "total": 0}
 @app.route("/")
 def index():
     return render_template("dashboard.html")
+
+
+# ============================================
+# ⭐ ROTA PARA FOTO RÁPIDA ⭐
+# ============================================
+@app.route("/previa_rapida", methods=["POST"])
+def previa_rapida():
+    url = request.json.get("url", "")
+    if not url:
+        return jsonify({"erro": "URL não fornecida"}), 400
+    try:
+        screenshot = tirar_foto_rapida(url)
+        if screenshot:
+            return jsonify({"screenshot": screenshot})
+        else:
+            return jsonify({"erro": "Não foi possível capturar a foto"}), 500
+    except Exception as e:
+        print(f"❌ Erro ao capturar foto rápida: {e}")
+        return jsonify({"erro": str(e)}), 500
 
 
 # ============================================

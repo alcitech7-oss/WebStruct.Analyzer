@@ -28,8 +28,8 @@
                 </div>
                 <ol class="instrucoes-lista">
                     <li>Enter the URL and click <strong>Map</strong></li>
-                    <li>A pop-up will appear confirming if this is the correct URL. If it is, click <strong>Map</strong></li>
-                    <li>Wait for the mapping to complete — the progress bar will show the status</li>
+                    <li>A pop-up will appear confirming if this is the correct URL. If it is, click on it. <strong>Map</strong></li>
+                    <li>When you click "Map," a window will open displaying the requested URL. It will remain visible during the mapping process. You can minimize it if you wish, but do not close it! It will close automatically once the mapping is complete.—<strong>but do not close it!</strong> It will close automatically once the mapping is complete.</li>
                 </ol>
             </div>
 
@@ -217,7 +217,7 @@
         </div>
 
         <!-- ============================================
-        MODAL DE CONFIRMAÇÃO (SEM FOTO)
+        MODAL DE CONFIRMAÇÃO (COM FOTO)
         ============================================ -->
         <div id="confirmModal" class="modal-confirm" style="display:none;">
             <div class="modal-confirm-content">
@@ -226,7 +226,14 @@
                     <h2>Confirmar Mapeamento</h2>
                 </div>
                 <div class="modal-confirm-body" id="modalBodyConfirm">
+                    <p style="color: #8b949e; font-size: 14px;">📸 Confira a prévia da página abaixo e decida o que fazer.</p>
+                    
                     <p class="modal-confirm-url" id="confirmUrl">https://www.uol.com.br/</p>
+                    
+                    <div id="previaPagina" style="margin-top: 10px; text-align: center; display: none;">
+                        <img id="screenshotPreview" src="" alt="Prévia da página" style="max-width: 100%; max-height: 300px; border-radius: 8px; border: 1px solid #30363d;">
+                        <p style="color: #8b949e; font-size: 12px; margin-top: 4px;">📸 Prévia da página que será mapeada</p>
+                    </div>
                 </div>
                 <div class="modal-confirm-footer" id="modalFooterConfirm">
                     <button class="btn-confirm btn-sim" onclick="confirmarMapeamento(true)">🚀 MAPEAR</button>

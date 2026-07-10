@@ -3,6 +3,7 @@ import pandas as pd
 from datetime import datetime
 import os
 import time
+import base64
 import json
 
 
@@ -25,6 +26,39 @@ def gerar_xpath(tag, classe, id_elem, posicao):
         classes = classe.strip().split()
         return f'//{tag}[contains(@class, "{classes[0]}")]'
     return f"//{tag}[{posicao}]"
+
+
+# ============================================
+# ⭐ FUNÇÃO PARA TIRAR FOTO RÁPIDA (CORRIGIDA) ⭐
+# ============================================
+
+
+def tirar_foto_rapida(url):
+    """Tira um screenshot rápido da página (com scroll leve)"""
+    print(f"📸 Tirando foto rápida de: {url}")
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.launch(
+                headless=True, args=["--no-sandbox", "--disable-dev-shm-usage"]
+            )
+            page = browser.new_page()
+            page.goto(url, timeout=30000, wait_until="domcontentloaded")
+
+            # ⭐ ADICIONA UM SCROLL LEVE (igual ao que funciona)
+            page.evaluate("window.scrollTo(0, document.body.scrollHeight * 0.3)")
+            page.wait_for_timeout(1000)
+            page.evaluate("window.scrollTo(0, 0)")
+            page.wait_for_timeout(1000)
+
+            # Tira a foto
+            screenshot = page.screenshot(full_page=False)
+            screenshot_base64 = base64.b64encode(screenshot).decode("utf-8")
+            browser.close()
+            print("📸 Foto rápida capturada com sucesso!")
+            return screenshot_base64
+    except Exception as e:
+        print(f"❌ Erro ao tirar foto rápida: {e}")
+        return None
 
 
 # ============================================
@@ -151,13 +185,15 @@ def analisar_estrutura_com_progresso(url):
 # ============================================
 
 
-def analisar_estrutura(url):
+def analisar_estrutura(url, pegar_screenshot=False):
     """
     Mapeia a estrutura de um site (completo, com scroll).
+    Se `pegar_screenshot` for True, retorna também um screenshot da página.
     """
     print(f"🔍 Analisando: {url}")
 
     dados = []
+    screenshot_base64 = None
 
     try:
         with sync_playwright() as p:
@@ -167,6 +203,12 @@ def analisar_estrutura(url):
 
             page = browser.new_page()
             page.goto(url, timeout=30000, wait_until="domcontentloaded")
+
+            if pegar_screenshot:
+                page.wait_for_timeout(2000)
+                screenshot = page.screenshot(full_page=True)
+                screenshot_base64 = base64.b64encode(screenshot).decode("utf-8")
+                print("📸 Screenshot capturado!")
 
             print("⏳ Rolando a página para carregar conteúdo dinâmico...")
             page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
@@ -236,11 +278,17 @@ def analisar_estrutura(url):
             browser.close()
             print("✅ Processo concluído!")
 
-            return dados
+            if pegar_screenshot:
+                return dados, screenshot_base64
+            else:
+                return dados
 
     except Exception as e:
         print(f"❌ Erro no mapeamento: {e}")
-        return []
+        if pegar_screenshot:
+            return [], None
+        else:
+            return []
 
 
 def salvar_mapa_atual(dados, url, descricao=None):
